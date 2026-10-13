@@ -2,6 +2,8 @@
 
 📖 **Dokumentation mit Screenshots:** [Wiki](https://github.com/frontline-networks/fanuc-ls-vscode/wiki)
 
+🐞 **Fehler, Wünsche, Fragen:** [Issue anlegen](https://github.com/frontline-networks/fanuc-ls-vscode/issues/new/choose) – oder ohne GitHub-Konto über das [Meldeformular](https://fanuc-ls-issues.pages.dev/?projekt=fanuc-ls).
+
 Unterstützung für FANUC-TP-Programme im ASCII-Listing-Format (`.ls`) und KAREL (`.kl`) sowie ARGDISP-Dateien (`.DT`) für den Argument-Wizard: Syntaxhighlighting, Snippets, Syntaxprüfung und ein Sidepanel für den FTP-Dateitransfer zur Robotersteuerung, dazu Controller-Klon, Sprungmarken-, E/A- und Achsverwaltung. Ausführliche Dokumentation im [Wiki](https://github.com/frontline-networks/fanuc-ls-vscode/wiki).
 
 Alles greift automatisch, sobald eine Datei mit der Endung `.ls` geöffnet wird. Zusätzlich erkennt VS Code auch Dateien ohne passende Endung, wenn die erste Zeile mit `/PROG` beginnt.

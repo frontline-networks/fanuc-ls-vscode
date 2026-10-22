@@ -24,6 +24,10 @@ Alle Befehle sind über die Befehlspalette (`F1` oder `Strg+Umschalt+P`) mit dem
 | FANUC: Klon: Änderungsbericht erstellen | Bericht, was beim Übertragen auf dem Roboter geändert würde |
 | FANUC: E/A suchen / filtern | E/A-Liste nach Nummer oder Kommentar filtern |
 | FANUC: E/A-Filter aufheben | alle Signale wieder anzeigen |
+| FANUC: In FANUC-Doku suchen | eigene Handbücher durchsuchen, siehe [[FANUC-Doku]] |
+| FANUC: In FANUC-Doku nachschlagen | Befehl unter dem Cursor nachschlagen (auch per Rechtsklick) |
+| FANUC: Doku-Ordner festlegen | Ordner mit Handbüchern wählen |
+| FANUC: Doku neu einlesen | Handbücher neu einlesen |
 | FANUC: E/A-Kommentare auf Roboter übertragen (KAREL) | KAREL-Programm erzeugen, das die Kommentare am Roboter setzt |
 
 Weitere Befehle stehen nur im Kontextmenü der Controller-Ansicht zur Verfügung, siehe [[Controller und FTP]].

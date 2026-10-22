@@ -52,3 +52,7 @@ Copilot lädt den Skill selbst, wenn es um FANUC-Programme geht. Gezielt aufrufe
 ## Skill anpassen
 
 Firmeneigene Konventionen gehören direkt in `SKILL.md`, etwa Registerbereiche, Standard-E/A, Namensregeln oder feste Unterprogramme. Weitere Beispiele können unter `references/` ergänzt werden. Die Dateien sind normales Markdown.
+
+## Eigene FANUC-Handbücher
+
+Zusätzlich zum Skill kann Copilot eure lokalen FANUC-Handbücher durchsuchen (Werkzeug `#fanucDocs`). Einrichtung unter [[FANUC-Doku]].

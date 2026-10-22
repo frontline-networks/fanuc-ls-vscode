@@ -15,6 +15,7 @@ import { registerMirrorCommand } from './mirrorCommand';
 import { registerWelder } from './welder';
 import { startStatusChecks } from './onlineStatus';
 import { registerLocationStatus } from './location';
+import { registerDocs } from './docs';
 
 const SELECTOR: vscode.DocumentSelector = { language: 'fanuc-ls' };
 
@@ -163,6 +164,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
 	const welderHome = registerWelder(context, api);
 	registerLocationStatus(context, (p) => originOf(context, p));
+
+	// --- FANUC-Dokumentation (lokaler Ordner, auch für Copilot) -----------------
+
+	registerDocs(context);
 
 	// --- Online-Status der Roboter ----------------------------------------------
 

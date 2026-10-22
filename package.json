@@ -39,7 +39,8 @@
     "onView:fanucLs.controllers",
     "onView:fanucLs.labels",
     "onView:fanucLs.io",
-    "onView:fanucLs.welder.home"
+    "onView:fanucLs.welder.home",
+    "onLanguageModelTool:fanuc_docs_search"
   ],
   "contributes": {
     "languages": [
@@ -530,6 +531,30 @@
         "title": "E/A-Kommentare auf Roboter übertragen (KAREL)",
         "category": "FANUC",
         "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "fanucLs.docs.search",
+        "title": "In FANUC-Doku suchen",
+        "category": "FANUC",
+        "icon": "$(book)"
+      },
+      {
+        "command": "fanucLs.docs.lookup",
+        "title": "In FANUC-Doku nachschlagen",
+        "category": "FANUC",
+        "icon": "$(book)"
+      },
+      {
+        "command": "fanucLs.docs.setFolder",
+        "title": "Doku-Ordner festlegen",
+        "category": "FANUC",
+        "icon": "$(folder-library)"
+      },
+      {
+        "command": "fanucLs.docs.reindex",
+        "title": "Doku neu einlesen",
+        "category": "FANUC",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -774,6 +799,11 @@
           "command": "fanucLs.karel.compile",
           "when": "resourceLangId == fanuc-karel && !config.fanucLs.simpleMode",
           "group": "1_modification@10"
+        },
+        {
+          "command": "fanucLs.docs.lookup",
+          "when": "resourceLangId =~ /^fanuc-(ls|karel|dt)$/",
+          "group": "1_modification@30"
         }
       ],
       "explorer/context": [
@@ -1182,6 +1212,11 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Einfacher Modus für Anwender ohne Programmiererfahrung: blendet den Experten-Seitenreiter (Controller-Baum, Sprungmarken, E/A) und die FANUC-Einträge in den Editor-Menüs aus. Alle Aufgaben laufen dann über den Seitenreiter **FANUC Schweißen**."
+        },
+        "fanucLs.docs.folder": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Ordner (oder einzelne Datei) mit eigener FANUC-Dokumentation: Handbücher als PDF mit Textebene, Text- oder Markdown-Dateien, auch in Unterordnern. Wird für **In FANUC-Doku suchen/nachschlagen** und als Werkzeug `#fanucDocs` für GitHub Copilot verwendet. Erlaubt sind `~` und `${workspaceFolder}`; relative Pfade gelten ab dem Arbeitsordner. Die Dateien bleiben lokal."
         }
       }
     },
@@ -1189,6 +1224,33 @@
       {
         "id": "fanucLs.positionsMenu",
         "label": "FANUC: Positionen & Achsen"
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "fanuc_docs_search",
+        "toolReferenceName": "fanucDocs",
+        "displayName": "FANUC-Doku durchsuchen",
+        "userDescription": "Durchsucht die lokal hinterlegte FANUC-Dokumentation (Einstellung fanucLs.docs.folder).",
+        "modelDescription": "Searches the user's local FANUC robot documentation (manuals for TP programming, KAREL, alarm codes, setup) that the user configured in the VS Code setting fanucLs.docs.folder. Use it whenever a question concerns FANUC instructions, system variables, alarm codes (e.g. SRVO-062, FILE-097), options or procedures, before answering from memory. Returns the best matching manual pages with file name and page number; cite them in the answer. Query with specific terms, preferably the original manual wording (often English).",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(book)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Search terms, e.g. 'SKIP CONDITION', 'SRVO-062', 'position register offset'"
+            },
+            "maxResults": {
+              "type": "number",
+              "description": "Number of results (1-10, default 5)"
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
       }
     ]
   },
@@ -1200,7 +1262,8 @@
     "test": "npm run compile && node --test test/*.test.js"
   },
   "dependencies": {
-    "basic-ftp": "^6.2.1"
+    "basic-ftp": "^6.2.1",
+    "pdfjs-dist": "4.10.38"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

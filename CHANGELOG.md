@@ -1,5 +1,12 @@
 # Änderungen
 
+## Unveröffentlicht
+
+### Neu
+
+- **Eigene FANUC-Dokumentation einbinden** (#13): Ordner mit Handbüchern (PDF mit Textebene, Text, Markdown) in `fanucLs.docs.folder` bzw. per *FANUC: Doku-Ordner festlegen*. Durchsuchen mit Trefferliste (Datei, Seite, Auszug), Nachschlagen des Befehls unter dem Cursor per Rechtsklick, Originaldatei öffnen. Einmal eingelesen, danach nur geänderte Dateien; gescannte PDFs ohne Text werden gemeldet.
+- **Werkzeug für GitHub Copilot** `#fanucDocs` (`fanuc_docs_search`): Copilot sucht bei FANUC-Fragen in den eigenen Handbüchern und nennt Datei und Seite. Der Copilot-Skill weist darauf hin.
+
 ## 0.7.0
 
 Bearbeitet die Rückmeldungen aus dem Praxistest (#18 bis #25). Details im [Wiki](https://github.com/frontline-networks/fanuc-ls-vscode/wiki/Controller-und-FTP).

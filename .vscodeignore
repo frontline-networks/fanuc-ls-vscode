@@ -11,3 +11,17 @@ node_modules/.bin/**
 package-lock.json
 docs/**
 !.github/skills/**
+node_modules/@napi-rs/**
+node_modules/pdfjs-dist/build/**
+node_modules/pdfjs-dist/web/**
+node_modules/pdfjs-dist/image_decoders/**
+node_modules/pdfjs-dist/types/**
+node_modules/pdfjs-dist/legacy/web/**
+node_modules/pdfjs-dist/legacy/image_decoders/**
+node_modules/pdfjs-dist/legacy/build/*.map
+node_modules/pdfjs-dist/legacy/build/*.min.mjs
+node_modules/pdfjs-dist/legacy/build/pdf.sandbox*
+node_modules/pdfjs-dist/legacy/build/*.d.mts
+node_modules/pdfjs-dist/cmaps/**
+node_modules/pdfjs-dist/standard_fonts/**
+node_modules/pdfjs-dist/wasm/**

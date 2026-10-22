@@ -47,6 +47,7 @@
 
 | Einstellung | Standard | Bedeutung |
 |---|---|---|
+| `fanucLs.docs.folder` | `""` | Ordner oder Datei mit eigener FANUC-Dokumentation (PDF, Text, Markdown) für Suche, Nachschlagen und `#fanucDocs`, siehe [[FANUC-Doku]] |
 | `fanucLs.copilot.skill` | `true` | Agent Skill `fanuc-tp-programmierung` für GitHub Copilot bereitstellen (VS Code ≥ 1.109), siehe [[Copilot-Skill]] |
 
 ## Syntaxprüfung

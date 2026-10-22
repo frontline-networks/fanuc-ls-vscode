@@ -16,6 +16,7 @@
 - [[Einstellungen]]
 - [[Befehle]]
 - [[Praxishinweise]]
+- [[FANUC-Doku]]
 - [[Copilot-Skill]]
 
 **Projekt**

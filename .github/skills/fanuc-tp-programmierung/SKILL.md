@@ -14,6 +14,8 @@ Nachschlagewerke in diesem Skill:
 
 Lies `references/syntax.md`, bevor du Befehle verwendest, deren genaue Schreibweise du nicht sicher kennst. Erfinde keine Befehle. Ist etwas nicht belegt, sag das und frage nach.
 
+**Lokale FANUC-Handbücher:** Ist das Werkzeug `fanuc_docs_search` (`#fanucDocs`) verfügbar, durchsuche damit die Handbücher des Anwenders, bevor du Details zu Befehlen, Optionen, Systemvariablen oder Alarmcodes (z. B. `SRVO-062`, `FILE-097`) aus dem Gedächtnis beantwortest. Suche mit den Begriffen aus dem Handbuch, oft englisch (`SKIP CONDITION`, `position register`). Gib die Fundstelle mit Datei und Seite an. Liefert die Suche nichts oder ist kein Ordner eingerichtet, sag das und verweise auf `FANUC: Doku-Ordner festlegen`.
+
 ## Arbeitsweise
 
 1. **Rahmen klären**, bevor Code entsteht. Fehlende Angaben erfragen oder als Annahme ausweisen:

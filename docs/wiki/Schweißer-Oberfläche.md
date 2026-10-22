@@ -22,6 +22,7 @@ Für Anwender ohne Programmiererfahrung hat die Extension einen eigenen Seitenre
 | Ein-/Ausgänge | Vom Roboter importieren, Kommentare auf Roboter, CSV importieren/exportieren, Gültige Bereiche, Status ein/aus, Status entfernen, E/A suchen, E/A-Filter aufheben, Neu laden |
 | Roboter & Dateien | Roboter einrichten/bearbeiten/entfernen, Passwort, Datei ansehen/herunterladen/hochladen/löschen, Gerät sichern, Roboterdatei vergleichen, Dateien filtern, Filter aufheben, Aktualisieren, FTP-Protokoll |
 | Klon | Klonen/aktualisieren, Änderungen anzeigen, Änderungsbericht, Änderungen übertragen |
+| FANUC-Doku | Doku durchsuchen, Nachschlagen, Doku-Ordner, Doku neu einlesen |
 | Argument-Wizard & KAREL | Neue ARGDISP-Datei, Argumente beschreiben, KAREL kompilieren |
 | Ansicht & Hilfe | Expertenansicht ein/aus, Einstellungen, Hilfe |
 

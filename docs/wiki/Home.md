@@ -28,6 +28,7 @@ Die Extension macht VS Code zum Editor für FANUC-TP-Programme im ASCII-Listing-
 | [[Controller und FTP]] | Steuerung einrichten, Dateien übertragen, Sicherung |
 | [[Einstellungen]] | Alle Optionen mit Standardwerten |
 | [[Praxishinweise]] | Tipps zur Steuerung (FTP, Geräte, ASCII-Upload) |
+| [[FANUC-Doku]] | Eigene FANUC-Handbücher durchsuchen, nachschlagen, für Copilot bereitstellen |
 | [[Copilot-Skill]] | GitHub-Copilot-Skill für FANUC-Programmierung |
 | [[Befehle]] | Alle `FANUC:`-Befehle der Befehlspalette |
 | [[Entwicklung und Release]] | Projektstruktur, Build-Pipeline, Releases |

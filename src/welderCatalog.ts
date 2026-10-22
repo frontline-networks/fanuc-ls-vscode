@@ -122,6 +122,16 @@ export const SECTIONS: Section[] = [
 		]
 	},
 	{
+		id: 'docs',
+		title: 'FANUC-Doku',
+		tiles: [
+			{ command: 'fanucLs.docs.search', icon: '📖', label: 'Doku durchsuchen', hint: 'In den eigenen FANUC-Handbüchern suchen (Ordner unter „Doku-Ordner“)' },
+			{ command: 'fanucLs.docs.lookup', icon: '🔍', label: 'Nachschlagen', hint: 'Befehl unter dem Cursor im zuletzt bearbeiteten Programm in der Doku nachschlagen', needs: 'fanuc-ls' },
+			{ command: 'fanucLs.docs.setFolder', icon: '📚', label: 'Doku-Ordner', hint: 'Ordner mit FANUC-Handbüchern (PDF, Text, Markdown) festlegen' },
+			{ command: 'fanucLs.docs.reindex', icon: '🔄', label: 'Doku neu einlesen', hint: 'Alle Handbücher neu einlesen' }
+		]
+	},
+	{
 		id: 'special',
 		title: 'Argument-Wizard & KAREL',
 		tiles: [

@@ -5,7 +5,7 @@ import { IoStore } from './io';
 import { ControllerProgramIndex } from './controllerPrograms';
 import { FanucCodeActionProvider } from './quickfix';
 import { FanucSymbolProvider } from './symbols';
-import { ControllerTreeProvider } from './controllerTree';
+import { ControllerTreeProvider, registerControllerFilter } from './controllerTree';
 import { originOf, registerCommands } from './commands';
 import { FanucDocumentFormatter, FanucOnTypeFormatter } from './format';
 import { registerLabelFeatures } from './labelView';
@@ -13,6 +13,8 @@ import { registerGroupCommands } from './groups';
 import { registerKarelFeatures } from './karel';
 import { registerMirrorCommand } from './mirrorCommand';
 import { registerWelder } from './welder';
+import { startStatusChecks } from './onlineStatus';
+import { registerLocationStatus } from './location';
 
 const SELECTOR: vscode.DocumentSelector = { language: 'fanuc-ls' };
 
@@ -84,12 +86,12 @@ export function activate(context: vscode.ExtensionContext): void {
 	// --- Sidepanel -----------------------------------------------------------
 
 	const tree = new ControllerTreeProvider(context.secrets);
-	context.subscriptions.push(
-		vscode.window.createTreeView('fanucLs.controllers', {
-			treeDataProvider: tree,
-			showCollapseAll: true
-		})
-	);
+	const controllerView = vscode.window.createTreeView('fanucLs.controllers', {
+		treeDataProvider: tree,
+		showCollapseAll: true
+	});
+	context.subscriptions.push(controllerView);
+	registerControllerFilter(context, tree, controllerView);
 
 	// --- Programmlisten der Controller für die CALL-Prüfung ------------------
 
@@ -159,7 +161,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
 	// --- Schweißer-Oberfläche (zweiter Seitenreiter) ---------------------------
 
-	registerWelder(context, api);
+	const welderHome = registerWelder(context, api);
+	registerLocationStatus(context, (p) => originOf(context, p));
+
+	// --- Online-Status der Roboter ----------------------------------------------
+
+	context.subscriptions.push(startStatusChecks(context.secrets, () => controllerView.visible || welderHome.visible));
 }
 
 export function deactivate(): void {

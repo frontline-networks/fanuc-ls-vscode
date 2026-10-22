@@ -60,8 +60,9 @@ function setLastProgram(uri: vscode.Uri): void {
 	onProgramChanged?.();
 }
 
-export function registerWelder(context: vscode.ExtensionContext, api: FanucApi): void {
+export function registerWelder(context: vscode.ExtensionContext, api: FanucApi): { readonly visible: boolean } {
 	const home = new WelderHome();
+	context.subscriptions.push(ftp.onDidChangeStatus(() => home.refresh()));
 	onProgramChanged = () => home.programChanged();
 	const track = (e: vscode.TextEditor | undefined) => {
 		if (e && e.document.languageId === 'fanuc-ls') {
@@ -104,12 +105,17 @@ export function registerWelder(context: vscode.ExtensionContext, api: FanucApi):
 		await setupRobot(w, api);
 		w.close();
 	});
+	return home;
 }
 
 // --- Startseite im Seitenreiter ---------------------------------------------------
 
 class WelderHome implements vscode.WebviewViewProvider {
 	private view?: vscode.WebviewView;
+
+	get visible(): boolean {
+		return this.view?.visible ?? false;
+	}
 
 	resolveWebviewView(view: vscode.WebviewView): void {
 		this.view = view;
@@ -161,12 +167,20 @@ class WelderHome implements vscode.WebviewViewProvider {
 			tile('help', undefined, '❓', 'Hilfe', 'Anleitung im Wiki öffnen') +
 			`</div></details>`;
 		const body = `
-			<div class="status">📝 <span class="prog">${prog ? esc(prog) : 'kein Programm geöffnet'}</span><br>🤖 ${robots.length ? esc(robots.map((r) => r.name).join(', ')) : 'noch kein Roboter eingerichtet'}</div>
+			<div class="status">📝 <span class="prog">${prog ? esc(prog) : 'kein Programm geöffnet'}</span><br>${robots.length ? robots.map((r) => robotStatus(r)).join(' &nbsp; ') : '🤖 noch kein Roboter eingerichtet'}</div>
 			${robots.length === 0 ? `<div class="tiles">${tile('run', 'fanucLs.welder.setup', '🤖', 'Roboter einrichten', 'Zuerst den Roboter einrichten')}</div>` : ''}
 			<input class="search" type="search" placeholder="Funktion suchen …">
 			${sections}${view}`;
 		this.view.webview.html = htmlDocument('Schweißen', body, HOME_SCRIPT).replace('<body>', '<body class="home">');
 	}
+}
+
+/** Roboter mit Online-Status für die Kopfzeile der Startseite (#19). */
+function robotStatus(r: ControllerConfig): string {
+	const st = ftp.statusOf(r);
+	const dot = !st ? '⚪' : st.online ? '🟢' : '🔴';
+	const title = !st ? 'Status noch unbekannt' : st.online ? 'online – Roboter erreichbar' : `nicht erreichbar${st.message ? ': ' + st.message : ''}`;
+	return `<span title="${esc(title)}">${dot} ${esc(r.name)}</span>`;
 }
 
 const HOME_SCRIPT = `

@@ -10,6 +10,7 @@
 |---|---|---|
 | `fanucLs.controllers` | `[]` | Liste der Steuerungen (Name, Host, Port, Benutzer, FTPS, Geräte) |
 | `fanucLs.ftp.timeout` | `8000` | Timeout für FTP-Operationen in ms |
+| `fanucLs.ftp.statusInterval` | `60` | alle n Sekunden prüfen, ob die Roboter erreichbar sind (nur bei sichtbarer Ansicht); `0` = aus |
 | `fanucLs.ftp.verbose` | `false` | FTP-Protokoll in den Ausgabekanal *FANUC FTP* schreiben |
 | `fanucLs.ftp.downloadDirectory` | `""` | Zielordner für Downloads; leer = Unterordner `fanuc` im Workspace |
 | `fanucLs.ftp.confirmUpload` | `true` | vor dem Überschreiben auf der Steuerung nachfragen |

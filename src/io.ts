@@ -5,6 +5,7 @@ import * as path from 'path';
 import { ControllerConfig, getControllers } from './config';
 import { ControllerNode } from './controllerTree';
 import * as ftp from './ftp';
+import { IO_COMMENT_MAX, KAREL_PROGRAM_NAME, buildIoCommentProgram } from './ioKarel';
 import {
 	IO_TYPES,
 	IO_TYPE_NAMES,
@@ -144,11 +145,22 @@ export class IoStore implements vscode.Disposable {
 // --- Baumansicht --------------------------------------------------------------
 
 class TypeNode extends vscode.TreeItem {
-	constructor(public readonly type: IoType, public readonly entries: (IoEntry & { source: string })[]) {
-		super(type, vscode.TreeItemCollapsibleState.Collapsed);
+	constructor(public readonly type: IoType, public readonly entries: (IoEntry & { source: string })[], expanded = false) {
+		super(type, expanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed);
+		// eigene ID je Zustand, damit VS Code den Auf-/Zuklapp-Zustand beim Filtern übernimmt
+		this.id = `${type}${expanded ? ':f' : ''}`;
 		const limit = vscode.workspace.getConfiguration('fanucLs').get<Record<string, number | string>>('validation.limits', {})[type];
 		const ranges = parseRanges(limit);
-		this.description = `${IO_TYPE_NAMES[type]} · ${entries.length}` + (ranges ? ` · Bereich ${formatRanges(ranges)}` : '');
+		this.description = `${IO_TYPE_NAMES[type]} · ${entries.length}` + (ranges ? ` · Prüfbereich ${formatRanges(ranges)}` : ' · keine Bereichsprüfung');
+		this.tooltip = new vscode.MarkdownString(
+			`**${type} – ${IO_TYPE_NAMES[type]}**\n\n` +
+				`${entries.length} Signal(e) aus der importierten E/A-Liste.\n\n` +
+				(ranges
+					? `**Prüfbereich ${formatRanges(ranges)}:** Die Syntaxprüfung warnt bei ${type}-Nummern außerhalb dieses Bereichs. ` +
+						'Signale aus der E/A-Liste gelten immer als gültig, auch außerhalb des Bereichs.'
+					: 'Für diesen Typ ist die Bereichsprüfung abgeschaltet.') +
+				'\n\nÄndern: Stift-Symbol rechts neben dem Typ.'
+		);
 		this.iconPath = new vscode.ThemeIcon(type.endsWith('I') ? 'arrow-small-right' : type.endsWith('O') ? 'arrow-small-left' : 'symbol-boolean');
 		this.contextValue = 'ioType';
 	}
@@ -182,11 +194,14 @@ class IoTreeProvider implements vscode.TreeDataProvider<TypeNode | EntryNode> {
 	getTreeItem(n: TypeNode | EntryNode): vscode.TreeItem {
 		return n;
 	}
+	/** Textfilter (#20): Nummer oder Kommentar enthält den Text, z. B. "greifer" oder "DO[12". */
+	filter = '';
 	getChildren(n?: TypeNode | EntryNode): (TypeNode | EntryNode)[] {
 		if (!n) {
-			const all = this.store.all();
+			const q = this.filter.trim().toLowerCase();
+			const all = this.store.all().filter((e) => !q || `${e.type}[${e.index}] ${e.comment}`.toLowerCase().includes(q));
 			return IO_TYPES.filter((t) => all.some((e) => e.type === t)).map(
-				(t) => new TypeNode(t, all.filter((e) => e.type === t))
+				(t) => new TypeNode(t, all.filter((e) => e.type === t), !!q)
 			);
 		}
 		if (n instanceof TypeNode) {
@@ -213,7 +228,9 @@ export function registerIoFeatures(context: vscode.ExtensionContext, store: IoSt
 
 	const updateMessage = () => {
 		view.message = store.all().length
-			? undefined
+			? provider.filter
+				? `Filter: „${provider.filter}“`
+				: undefined
 			: 'Noch keine E/A-Kommentare bekannt. Liste vom Controller importieren (Wolken-Symbol), CSV importieren oder Programme mit kommentierten Signalen öffnen.';
 	};
 	store.onDidChange(updateMessage);
@@ -282,6 +299,96 @@ export function registerIoFeatures(context: vscode.ExtensionContext, store: IoSt
 	// --- Befehle ------------------------------------------------------------
 
 	reg('fanucLs.io.refresh', () => store.reload());
+
+	const setFilter = (text: string) => {
+		provider.filter = text;
+		provider.refresh();
+		void vscode.commands.executeCommand('setContext', 'fanucLs.io.filtered', !!text);
+		updateMessage();
+	};
+	reg('fanucLs.io.filter', async () => {
+		const text = await vscode.window.showInputBox({
+			prompt: 'E/A suchen: Nummer oder Kommentar enthält … (z. B. Greifer, DO[12). Leer = alle.',
+			value: provider.filter
+		});
+		if (text !== undefined) {
+			setFilter(text.trim());
+		}
+	});
+	reg('fanucLs.io.clearFilter', () => setFilter(''));
+
+	// E/A-Kommentare auf den Roboter schreiben (#21): über ein erzeugtes KAREL-Programm (SET_PORT_CMT)
+	reg('fanucLs.io.writeToRobot', async () => {
+		const all = store.all();
+		if (all.length === 0) {
+			vscode.window.showInformationMessage('Die E/A-Liste ist leer. Zuerst vom Roboter oder aus einer CSV-Datei importieren, oder Kommentare in der CSV-Datei pflegen und importieren.');
+			return;
+		}
+		const types = [...new Set(all.map((e) => e.type))];
+		const picked = await vscode.window.showQuickPick(
+			types.map((t) => ({ label: t, description: `${all.filter((e) => e.type === t).length} Kommentar(e)`, picked: t === 'DI' || t === 'DO' })),
+			{ canPickMany: true, placeHolder: 'Welche Kommentare auf den Roboter übertragen?' }
+		);
+		if (!picked || picked.length === 0) {
+			return;
+		}
+		const controller = await deps.pickController();
+		if (!controller) {
+			return;
+		}
+		const chosen = all.filter((e) => picked.some((p) => p.label === e.type));
+		const result = buildIoCommentProgram(chosen, controller.name);
+		const dir = vscode.workspace.workspaceFolders?.[0]
+			? path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, '.fanuc', 'io')
+			: path.join(os.tmpdir(), 'fanuc-ls', 'io');
+		await fs.mkdir(dir, { recursive: true });
+		const kl = path.join(dir, `${KAREL_PROGRAM_NAME}.KL`);
+		await fs.writeFile(kl, result.source, 'latin1');
+		await vscode.window.showTextDocument(vscode.Uri.file(kl), { preview: false });
+
+		const notes = [
+			`${result.written} Kommentar(e) in ${KAREL_PROGRAM_NAME}.KL geschrieben.`,
+			result.truncated.length ? `Auf ${IO_COMMENT_MAX} Zeichen gekürzt: ${result.truncated.join(', ')}.` : '',
+			result.skipped.length ? `Nicht unterstützt (bleiben unverändert): ${result.skipped.join(', ')}.` : ''
+		].filter(Boolean);
+		const ktrans = vscode.workspace.getConfiguration('fanucLs').get<string>('karel.ktransPath', '').trim();
+		const upload = async () => {
+			const found = (await fs.readdir(dir)).find((f) => f.toLowerCase() === `${KAREL_PROGRAM_NAME.toLowerCase()}.pc`);
+			if (!found) {
+				vscode.window.showWarningMessage(`${KAREL_PROGRAM_NAME}.PC gibt es noch nicht. Bitte zuerst kompilieren (ktrans) und warten, bis das Terminal fertig ist.`);
+				return;
+			}
+			const remote = `md:${KAREL_PROGRAM_NAME}.PC`;
+			await deps.withProgress(`${KAREL_PROGRAM_NAME}.PC -> ${controller.name}`, () =>
+				ftp.uploadFile(controller, deps.secrets, path.join(dir, found), remote)
+			);
+			vscode.window.showInformationMessage(
+				`${KAREL_PROGRAM_NAME} ist auf ${controller.name}. Jetzt am Programmierhandgerät: SELECT → ${KAREL_PROGRAM_NAME} auswählen und starten (SHIFT+FWD). Danach erscheinen die Kommentare unter MENU → E/A.`,
+				{ modal: true }
+			);
+		};
+		const action = await vscode.window.showInformationMessage(
+			notes.join(' ') +
+				(ktrans
+					? ' Nächster Schritt: kompilieren, dann das fertige .PC hochladen und am Handgerät einmal ausführen.'
+					: ' Zum Kompilieren wird ktrans aus ROBOGUIDE benötigt (fanucLs.karel.ktransPath). Alternativ die .KL-Datei in ROBOGUIDE kompilieren und das .PC hier ablegen.'),
+			...(ktrans ? ['Kompilieren', `${KAREL_PROGRAM_NAME}.PC hochladen`] : ['ktrans einrichten', `${KAREL_PROGRAM_NAME}.PC hochladen`])
+		);
+		if (action === 'Kompilieren') {
+			await vscode.commands.executeCommand('fanucLs.karel.compile', vscode.Uri.file(kl));
+			const next = await vscode.window.showInformationMessage(
+				`Wenn ktrans im Terminal fertig ist, ${KAREL_PROGRAM_NAME}.PC auf ${controller.name} laden.`,
+				`${KAREL_PROGRAM_NAME}.PC hochladen`
+			);
+			if (next) {
+				await upload();
+			}
+		} else if (action === 'ktrans einrichten') {
+			await vscode.commands.executeCommand('workbench.action.openSettings', 'fanucLs.karel');
+		} else if (action) {
+			await upload();
+		}
+	});
 
 	reg('fanucLs.io.importFromController', async (node?: ControllerNode) => {
 		const controller = node?.controller ?? (await deps.pickController());
@@ -420,10 +527,20 @@ export function registerIoFeatures(context: vscode.ExtensionContext, store: IoSt
 		}
 		const ranges = parseRanges(value);
 		limits[picked] = !ranges ? 0 : ranges.length === 1 && ranges[0].from === 1 ? ranges[0].to : formatRanges(mergeRanges(ranges));
-		const target = vscode.workspace.workspaceFolders?.length
-			? vscode.ConfigurationTarget.Workspace
-			: vscode.ConfigurationTarget.Global;
-		await cfg.update('validation.limits', limits, target);
+		// Benutzereinstellungen, damit die Bereiche für alle Ordner und vom Roboter geöffnete Programme gelten (#25).
+		// Hat der Ordner eigene Bereiche, würden diese überschreiben - dort ebenfalls ändern.
+		await cfg.update('validation.limits', limits, vscode.ConfigurationTarget.Global);
+		const inspect = cfg.inspect<Record<string, number | string>>('validation.limits');
+		if (inspect?.workspaceValue !== undefined) {
+			await cfg.update('validation.limits', { ...inspect.workspaceValue, [picked]: limits[picked] }, vscode.ConfigurationTarget.Workspace);
+		}
+		if (inspect?.workspaceFolderValue !== undefined && vscode.workspace.workspaceFolders?.[0]) {
+			const folderCfg = vscode.workspace.getConfiguration('fanucLs', vscode.workspace.workspaceFolders[0].uri);
+			await folderCfg.update('validation.limits', { ...inspect.workspaceFolderValue, [picked]: limits[picked] }, vscode.ConfigurationTarget.WorkspaceFolder);
+		}
+		vscode.window.showInformationMessage(
+			`Gültiger Bereich für ${picked}: ${ranges ? formatRanges(ranges) : 'keine Prüfung'} – gespeichert in den Benutzereinstellungen.`
+		);
 		provider.refresh();
 	});
 

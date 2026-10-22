@@ -19,6 +19,12 @@ Alle Befehle sind über die Befehlspalette (`F1` oder `Strg+Umschalt+P`) mit dem
 | FANUC: Klon: Änderungen anzeigen | geänderte, neue und gelöschte Dateien im Klon |
 | FANUC: Klon: Änderungen auf Controller übertragen | geänderte Dateien hochladen, mit Konfliktprüfung |
 | FANUC: FTP-Protokoll anzeigen | Ausgabekanal *FANUC FTP* öffnen |
+| FANUC: Filtern / Suchen | Dateien im Controller-Baum nach Typ und Name filtern |
+| FANUC: Filter aufheben | alle Dateien wieder anzeigen |
+| FANUC: Klon: Änderungsbericht erstellen | Bericht, was beim Übertragen auf dem Roboter geändert würde |
+| FANUC: E/A suchen / filtern | E/A-Liste nach Nummer oder Kommentar filtern |
+| FANUC: E/A-Filter aufheben | alle Signale wieder anzeigen |
+| FANUC: E/A-Kommentare auf Roboter übertragen (KAREL) | KAREL-Programm erzeugen, das die Kommentare am Roboter setzt |
 
 Weitere Befehle stehen nur im Kontextmenü der Controller-Ansicht zur Verfügung, siehe [[Controller und FTP]].
 

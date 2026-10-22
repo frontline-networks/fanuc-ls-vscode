@@ -19,7 +19,7 @@ Beim Überfahren mit der Maus erscheint die Meldung als Hover, darunter ein Link
 **Zeilen**
 - lückenlos fortlaufende Nummerierung im `/MN`-Block *(`checkLineNumbers`)*
 - fehlendes `;` am Zeilenende
-- unausgeglichene Klammern
+- unausgeglichene Klammern (Text in Kommentaren zählt nicht mit: `!Bemerkung`, `DO[1:Greifer (auf]`, `LBL[3:Teil (li]`, `MESSAGE[…]`, auskommentierte `//`-Zeilen und Zeichenketten)
 - optional: strenges Zeilenformat *(`checkLineFormat`, standardmäßig aus)*
 
 **Bewegungsbefehle** *(`checkMotion`)*

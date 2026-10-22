@@ -6,7 +6,7 @@ Für Anwender ohne Programmiererfahrung hat die Extension einen eigenen Seitenre
 
 ## Aufbau der Startseite
 
-- **Oben** stehen das zuletzt bearbeitete Programm (📝) und die eingerichteten Roboter (🤖).
+- **Oben** stehen das zuletzt bearbeitete Programm (📝) und die eingerichteten Roboter mit Online-Status: 🟢 erreichbar, 🔴 nicht erreichbar, ⚪ noch unbekannt.
 - **Funktion suchen …** filtert die Kacheln nach Name und Beschreibung, z. B. „sicher“ findet *Sicherung* und *Gerät sichern*.
 - Die Kacheln sind in **aufklappbare Bereiche** gegliedert. Welche Bereiche offen sind, merkt sich die Seite.
 - **Mit der Maus über einer Kachel** erscheint eine kurze Erklärung.
@@ -19,9 +19,9 @@ Für Anwender ohne Programmiererfahrung hat die Extension einen eigenen Seitenre
 | Programm | Neues Programm, Syntax prüfen, Zeilen nummerieren, LINE_COUNT, Hochladen, Mit Roboter vergleichen, Gruppe spiegeln |
 | Sprungmarken | Einfügen, Alle neu nummerieren, Kommentar ändern, Nummer ändern |
 | Positionen & Achsen | Position anlegen, Gruppe hinzufügen/entfernen, Zusatzachse hinzufügen/entfernen |
-| Ein-/Ausgänge | Vom Roboter importieren, CSV importieren/exportieren, Gültige Bereiche, Status ein/aus, Status entfernen, Neu laden |
-| Roboter & Dateien | Roboter einrichten/bearbeiten/entfernen, Passwort, Datei ansehen/herunterladen/hochladen/löschen, Gerät sichern, Roboterdatei vergleichen, Aktualisieren, FTP-Protokoll |
-| Klon | Klonen/aktualisieren, Änderungen anzeigen, Änderungen übertragen |
+| Ein-/Ausgänge | Vom Roboter importieren, Kommentare auf Roboter, CSV importieren/exportieren, Gültige Bereiche, Status ein/aus, Status entfernen, E/A suchen, E/A-Filter aufheben, Neu laden |
+| Roboter & Dateien | Roboter einrichten/bearbeiten/entfernen, Passwort, Datei ansehen/herunterladen/hochladen/löschen, Gerät sichern, Roboterdatei vergleichen, Dateien filtern, Filter aufheben, Aktualisieren, FTP-Protokoll |
+| Klon | Klonen/aktualisieren, Änderungen anzeigen, Änderungsbericht, Änderungen übertragen |
 | Argument-Wizard & KAREL | Neue ARGDISP-Datei, Argumente beschreiben, KAREL kompilieren |
 | Ansicht & Hilfe | Expertenansicht ein/aus, Einstellungen, Hilfe |
 

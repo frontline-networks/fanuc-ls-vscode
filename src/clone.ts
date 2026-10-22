@@ -5,6 +5,8 @@ import * as path from 'path';
 import { ControllerConfig, devicesOf, getControllers } from './config';
 import { ControllerNode, ControllerTreeProvider } from './controllerTree';
 import * as ftp from './ftp';
+import { ReportEntry, buildReport } from './cloneReport';
+import { isReadOnlyReport } from './ioKarel';
 import {
 	CloneChange,
 	CloneManifest,
@@ -150,14 +152,23 @@ export function registerCloneCommands(
 			label: `$(cloud-upload) Änderungen auf ${clone.manifest.controller} übertragen …`,
 			change: undefined as CloneChange | undefined
 		};
+		const reportItem = {
+			label: '$(output) Änderungsbericht erstellen',
+			description: 'Übersicht aller Änderungen gegenüber dem Roboter',
+			change: undefined as CloneChange | undefined
+		};
 		const picked = await vscode.window.showQuickPick(
-			[pushItem, ...changes.map((c) => ({ ...changeItem(c), change: c as CloneChange | undefined }))],
+			[pushItem, reportItem, ...changes.map((c) => ({ ...changeItem(c), change: c as CloneChange | undefined }))],
 			{
 				placeHolder: `${changes.length} Änderungen im Klon von ${clone.manifest.controller} - Datei wählen für den Vergleich`,
 				matchOnDescription: true
 			}
 		);
 		if (!picked) {
+			return;
+		}
+		if (picked === reportItem) {
+			await vscode.commands.executeCommand('fanucLs.clone.report', vscode.Uri.file(clone.root));
 			return;
 		}
 		if (!picked.change) {
@@ -180,6 +191,54 @@ export function registerCloneCommands(
 		}
 	});
 
+	// --- Änderungsbericht (#24) -------------------------------------------------
+
+	reg('fanucLs.clone.report', async (uri?: vscode.Uri) => {
+		const clone = await pickClone(uri);
+		if (!clone) {
+			return;
+		}
+		const controller = findController(clone.manifest);
+		if (!controller) {
+			return;
+		}
+		const changes = await computeChanges(clone.root, clone.manifest);
+		const entries: ReportEntry[] = [];
+		await deps.withProgress(`Änderungsbericht für ${controller.name}`, async (progress) => {
+			const tmp = path.join(os.tmpdir(), 'fanuc-ls', 'clone-check');
+			await fs.mkdir(tmp, { recursive: true });
+			let i = 0;
+			for (const change of changes) {
+				i++;
+				progress.report({ message: `${i}/${changes.length}  ${change.relPath}` });
+				const local = path.join(clone.root, ...change.relPath.split('/'));
+				const entry: ReportEntry = { change, conflict: false };
+				if (change.kind !== 'deleted') {
+					entry.localText = await fs.readFile(local, 'latin1').catch(() => undefined);
+				}
+				const probe = path.join(tmp, sanitize(change.remotePath));
+				try {
+					await ftp.downloadToFile(controller, secrets, change.remotePath, probe);
+					entry.robotText = await fs.readFile(probe, 'latin1');
+					const known = clone.manifest.files[change.relPath];
+					entry.conflict = known ? (await sha1File(probe)) !== known.sha1 : change.kind === 'added';
+				} catch (err) {
+					if (change.kind !== 'added') {
+						entry.error = 'auf dem Roboter nicht lesbar';
+					}
+				}
+				entries.push(entry);
+			}
+		});
+		const md = buildReport(
+			{ controller: controller.name, cloneRoot: clone.root, created: new Date(), clonedAt: clone.manifest.updated },
+			entries
+		);
+		const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content: md });
+		await vscode.window.showTextDocument(doc, { preview: false });
+		await vscode.commands.executeCommand('markdown.showPreviewToSide', doc.uri);
+	});
+
 	// --- Änderungen übertragen ------------------------------------------------
 
 	reg('fanucLs.clone.pushChanges', async (uri?: vscode.Uri) => {
@@ -191,7 +250,15 @@ export function registerCloneCommands(
 		if (!controller) {
 			return;
 		}
-		const changes = (await computeChanges(clone.root, clone.manifest)).filter((c) => c.kind !== 'deleted');
+		const all = (await computeChanges(clone.root, clone.manifest)).filter((c) => c.kind !== 'deleted');
+		// Diagnose-/Berichtsdateien (z. B. IOSTATE.DG) lassen sich nicht hochladen (#21)
+		const reports = all.filter((c) => isReadOnlyReport(path.basename(c.relPath)));
+		const changes = all.filter((c) => !reports.includes(c));
+		if (reports.length) {
+			vscode.window.showInformationMessage(
+				`Nicht übertragbar, weil von der Steuerung erzeugte Diagnosedateien: ${reports.map((c) => c.relPath).join(', ')}. E/A-Kommentare über „E/A-Kommentare auf Roboter übertragen“ setzen.`
+			);
+		}
 		if (changes.length === 0) {
 			vscode.window.showInformationMessage('Keine geänderten oder neuen Dateien zum Übertragen.');
 			return;
@@ -213,7 +280,16 @@ export function registerCloneCommands(
 		const question =
 			`${picked.length} Datei(en) auf ${controller.name} übertragen?` +
 			(withErrors.length ? `\n\nDie Syntaxprüfung meldet Fehler in: ${withErrors.join(', ')}` : '');
-		const go = await vscode.window.showWarningMessage(question, { modal: true }, 'Übertragen');
+		const go = await vscode.window.showWarningMessage(
+			question,
+			{ modal: true, detail: 'Tipp: Der Änderungsbericht zeigt vorher genau, was auf dem Roboter überschrieben wird.' },
+			'Übertragen',
+			'Erst Bericht anzeigen'
+		);
+		if (go === 'Erst Bericht anzeigen') {
+			await vscode.commands.executeCommand('fanucLs.clone.report', vscode.Uri.file(clone.root));
+			return;
+		}
 		if (go !== 'Übertragen') {
 			return;
 		}

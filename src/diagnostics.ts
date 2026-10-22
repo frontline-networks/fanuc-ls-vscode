@@ -295,7 +295,7 @@ function checkTpLines(program: ParsedProgram, cfg: vscode.WorkspaceConfiguration
 			if (ranges && ref.id > 0 && !inRanges(ranges, ref.id) && !ioConfigured?.(ref.type, ref.id)) {
 				push(
 					mapRange(program, tp, ref.index, ref.length),
-					`${ref.type}[${ref.id}] liegt außerhalb der konfigurierten Bereiche (${formatRanges(ranges)}). Bereiche unter "fanucLs.validation.limits" anpassen oder die E/A-Liste vom Controller importieren.`,
+					`${ref.type}[${ref.id}] liegt außerhalb des Prüfbereichs für ${ref.type} (${formatRanges(ranges)}). Ist das Signal am Roboter vorhanden: Bereich per Quick Fix (Strg+.) erweitern (gilt dann dauerhaft) oder die E/A-Liste vom Controller importieren – importierte Signale gelten immer als gültig.`,
 					vscode.DiagnosticSeverity.Warning,
 					Code.IndexRange
 				);

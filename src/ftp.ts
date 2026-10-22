@@ -25,6 +25,32 @@ export function showLog(): void {
 	output.show(true);
 }
 
+// --- Online-Status (#19) --------------------------------------------------------
+
+export interface OnlineStatus {
+	online: boolean;
+	/** Zeitpunkt der letzten Verbindung bzw. des letzten Versuchs */
+	checkedAt: Date;
+	message?: string;
+}
+
+const statusMap = new Map<string, OnlineStatus>();
+const statusEmitter = new vscode.EventEmitter<string>();
+/** Feuert mit dem Controllernamen, wenn sich der Online-Status ändert. */
+export const onDidChangeStatus = statusEmitter.event;
+
+export function statusOf(controller: ControllerConfig): OnlineStatus | undefined {
+	return statusMap.get(controller.name);
+}
+
+function setStatus(controller: ControllerConfig, online: boolean, message?: string): void {
+	const prev = statusMap.get(controller.name);
+	statusMap.set(controller.name, { online, checkedAt: new Date(), message });
+	if (prev?.online !== online) {
+		statusEmitter.fire(controller.name);
+	}
+}
+
 /** Pro Steuerung nur eine Verbindung gleichzeitig - FANUC-Steuerungen haben sehr wenige FTP-Slots. */
 const queues = new Map<string, Promise<unknown>>();
 
@@ -57,6 +83,7 @@ async function withClient<T>(
 		if (opts.verbose) {
 			client.ftp.log = log;
 		}
+		let connected = false;
 		try {
 			await client.access({
 				host: controller.host,
@@ -65,9 +92,14 @@ async function withClient<T>(
 				password: (await getPassword(secrets, controller)) || '',
 				secure: controller.secure === true
 			});
+			connected = true;
+			setStatus(controller, true);
 			return await fn(client);
 		} catch (err) {
 			const raw = err instanceof Error ? err.message : String(err);
+			if (!connected) {
+				setStatus(controller, false, raw);
+			}
 			log(`[${controller.name}] Fehler: ${raw}`);
 			// basic-ftp ≥ 6 lehnt Datenverbindungen zu einer anderen IP ab (Schutz vor FTP-Bounce)
 			const msg = /PASV returned another host/.test(raw)
@@ -137,9 +169,21 @@ export async function uploadFile(
 	localPath: string,
 	remotePath: string
 ): Promise<void> {
-	await withClient(controller, secrets, async (client) => {
-		await client.uploadFrom(localPath, remotePath);
-	});
+	try {
+		await withClient(controller, secrets, async (client) => {
+			await client.uploadFrom(localPath, remotePath);
+		});
+	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err);
+		if (/\b55[0-3]\b/.test(msg)) {
+			throw new FtpError(
+				`${msg} – Die Steuerung hat das Schreiben abgelehnt. Mögliche Gründe: Datei schreibgeschützt, Programm gerade ausgewählt oder in Benutzung, ` +
+					'oder dieser Dateityp kann auf das Gerät nicht geladen werden (z. B. Diagnosedateien, Systemdateien auf md:).',
+				err
+			);
+		}
+		throw err;
+	}
 }
 
 export async function remove(

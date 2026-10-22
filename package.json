@@ -2,7 +2,7 @@
   "name": "fanuc-ls",
   "displayName": "FANUC TP (LS)",
   "description": "Syntaxhighlighting, Snippets, Syntaxprüfung und FTP-Dateitransfer für FANUC TP-Programme (.ls) und KAREL (.kl)",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "publisher": "frontlinenetworks",
   "license": "MIT",
   "repository": {
@@ -494,6 +494,42 @@
         "title": "Roboter einrichten",
         "category": "FANUC Schweißen",
         "icon": "$(add)"
+      },
+      {
+        "command": "fanucLs.filter",
+        "title": "Filtern / Suchen",
+        "category": "FANUC",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "fanucLs.clearFilter",
+        "title": "Filter aufheben",
+        "category": "FANUC",
+        "icon": "$(filter-filled)"
+      },
+      {
+        "command": "fanucLs.io.filter",
+        "title": "E/A suchen / filtern",
+        "category": "FANUC",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "fanucLs.io.clearFilter",
+        "title": "E/A-Filter aufheben",
+        "category": "FANUC",
+        "icon": "$(filter-filled)"
+      },
+      {
+        "command": "fanucLs.clone.report",
+        "title": "Klon: Änderungsbericht erstellen",
+        "category": "FANUC",
+        "icon": "$(output)"
+      },
+      {
+        "command": "fanucLs.io.writeToRobot",
+        "title": "E/A-Kommentare auf Roboter übertragen (KAREL)",
+        "category": "FANUC",
+        "icon": "$(cloud-upload)"
       }
     ],
     "menus": {
@@ -552,6 +588,36 @@
           "command": "fanucLs.io.editRanges",
           "when": "view == fanucLs.io",
           "group": "1_io@2"
+        },
+        {
+          "command": "fanucLs.filter",
+          "when": "view == fanucLs.controllers && !fanucLs.controllers.filtered",
+          "group": "navigation@0"
+        },
+        {
+          "command": "fanucLs.clearFilter",
+          "when": "view == fanucLs.controllers && fanucLs.controllers.filtered",
+          "group": "navigation@0"
+        },
+        {
+          "command": "fanucLs.io.filter",
+          "when": "view == fanucLs.io && !fanucLs.io.filtered",
+          "group": "navigation@0"
+        },
+        {
+          "command": "fanucLs.io.clearFilter",
+          "when": "view == fanucLs.io && fanucLs.io.filtered",
+          "group": "navigation@0"
+        },
+        {
+          "command": "fanucLs.clone.report",
+          "when": "view == fanucLs.controllers",
+          "group": "1_clone@1"
+        },
+        {
+          "command": "fanucLs.io.writeToRobot",
+          "when": "view == fanucLs.io",
+          "group": "1_io@3"
         }
       ],
       "view/item/context": [
@@ -916,6 +982,12 @@
           "type": "number",
           "default": 8000,
           "description": "Timeout für FTP-Operationen in Millisekunden."
+        },
+        "fanucLs.ftp.statusInterval": {
+          "type": "number",
+          "default": 60,
+          "minimum": 0,
+          "markdownDescription": "Abstand in Sekunden, in dem geprüft wird, ob die Roboter erreichbar sind (grüner/roter Status). Geprüft wird nur, solange die Controller-Ansicht oder die Schweißer-Startseite sichtbar ist. `0` schaltet die Prüfung ab; der Status wird dann nur bei FTP-Aktionen aktualisiert."
         },
         "fanucLs.ftp.verbose": {
           "type": "boolean",

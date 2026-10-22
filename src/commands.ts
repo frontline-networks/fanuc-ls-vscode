@@ -25,6 +25,8 @@ import { isValidProgramName } from './parser';
 import { registerCloneCommands } from './clone';
 import { originFromClone } from './cloneCore';
 import { ControllerProgramIndex } from './controllerPrograms';
+import { locate } from './location';
+import { isReadOnlyReport } from './ioKarel';
 import { IoStore, registerIoFeatures } from './io';
 
 const ORIGIN_KEY = 'fanucLs.origins';
@@ -133,9 +135,11 @@ export function registerCommands(
 		tree.refresh();
 	});
 
-	reg('fanucLs.refresh', (node?: FanucNode) => {
+	reg('fanucLs.refresh', async (node?: FanucNode) => {
+		const controllerName = node && 'controller' in node ? node.controller.name : undefined;
 		tree.refresh(node);
-		programIndex.invalidate(node && 'controller' in node ? node.controller.name : undefined);
+		programIndex.invalidate(controllerName);
+		await reloadRemoteViews(controllerName);
 	});
 
 	// --- Dateitransfer -------------------------------------------------------
@@ -243,6 +247,11 @@ export function registerCommands(
 			await doc.save();
 		}
 
+		if (isReadOnlyReport(path.basename(doc.uri.fsPath))) {
+			await explainReadOnlyReport(doc.uri.fsPath);
+			return;
+		}
+
 		const opts = getFtpOptions();
 		if (opts.validateBeforeUpload && doc.languageId === 'fanuc-ls') {
 			await runValidation(doc);
@@ -263,7 +272,9 @@ export function registerCommands(
 		if (!target) {
 			return;
 		}
-		await uploadLocalFile(doc.uri.fsPath, target.controller, undefined, target.remotePath);
+		if (!(await uploadLocalFile(doc.uri.fsPath, target.controller, undefined, target.remotePath))) {
+			return;
+		}
 		rememberOrigin(context, doc.uri.fsPath, { controller: target.controller.name, remotePath: target.remotePath });
 		tree.refresh();
 	});
@@ -408,6 +419,46 @@ export function registerCommands(
 
 	// --- Hilfsfunktionen -----------------------------------------------------
 
+	/**
+	 * Vom Roboter angesehene Programme (temporäre Kopien) neu laden, damit z. B. der
+	 * E/A-Status aktuell ist (#18). Arbeitskopien und geänderte Dateien bleiben unberührt.
+	 */
+	async function reloadRemoteViews(controllerName?: string): Promise<void> {
+		const viewDir = path.join(os.tmpdir(), 'fanuc-ls') + path.sep;
+		const docs = vscode.workspace.textDocuments.filter(
+			(d) => d.uri.scheme === 'file' && d.uri.fsPath.startsWith(viewDir) && !d.uri.fsPath.startsWith(path.join(viewDir, 'compare'))
+		);
+		let reloaded = 0;
+		const skipped: string[] = [];
+		for (const doc of docs) {
+			const origin = getOrigin(context, doc.uri.fsPath);
+			const controller = origin && getControllers().find((c) => c.name === origin.controller);
+			if (!origin || !controller || (controllerName && controller.name !== controllerName)) {
+				continue;
+			}
+			if (doc.isDirty) {
+				skipped.push(path.basename(doc.uri.fsPath));
+				continue;
+			}
+			try {
+				await ftp.downloadToFile(controller, secrets, origin.remotePath, doc.uri.fsPath);
+				// VS Code lädt unveränderte Dateien bei Änderung auf der Platte selbst neu; zur Sicherheit erzwingen
+				if (vscode.window.activeTextEditor?.document === doc) {
+					await vscode.commands.executeCommand('workbench.action.files.revert');
+				}
+				reloaded++;
+			} catch {
+				skipped.push(path.basename(doc.uri.fsPath));
+			}
+		}
+		if (reloaded || skipped.length) {
+			vscode.window.showInformationMessage(
+				(reloaded ? `${reloaded} geöffnete(s) Programm(e) neu vom Roboter geladen (aktueller E/A-Status).` : '') +
+					(skipped.length ? ` Nicht neu geladen (geändert oder nicht erreichbar): ${skipped.join(', ')}` : '')
+			);
+		}
+	}
+
 	const api: FanucApi = {
 		secrets,
 		withProgress,
@@ -415,7 +466,9 @@ export function registerCommands(
 		rememberOrigin: (local, origin) => rememberOrigin(context, local, origin),
 		originOf: (local) => originOf(context, local),
 		upload: async (local, controller, remotePath) => {
-			await uploadLocalFile(local, controller, undefined, remotePath, false);
+			if (!(await uploadLocalFile(local, controller, undefined, remotePath, false))) {
+				throw new Error(`${path.basename(local)} ist eine Diagnosedatei der Steuerung und kann nicht hochgeladen werden.`);
+			}
 			rememberOrigin(context, local, { controller: controller.name, remotePath });
 			tree.refresh();
 		},
@@ -426,15 +479,40 @@ export function registerCommands(
 		refresh: () => tree.refresh()
 	};
 
+	async function explainReadOnlyReport(localPath: string): Promise<void> {
+		const isIo = /^IOSTATE\./i.test(path.basename(localPath));
+		const action = await vscode.window.showWarningMessage(
+			`${path.basename(localPath)} kann nicht auf die Steuerung geladen werden.`,
+			{
+				modal: true,
+				detail:
+					'Diese Datei ist eine Diagnose- bzw. Berichtsausgabe, die die Steuerung beim Herunterladen erzeugt. Sie lässt sich lesen, aber nicht zurückladen.' +
+					(isIo
+						? '\n\nE/A-Kommentare ändern: Kommentare in der E/A-Liste pflegen (z. B. per CSV) und mit „E/A-Kommentare auf Roboter übertragen“ setzen.'
+						: '')
+			},
+			...(isIo ? ['E/A-Kommentare übertragen …'] : [])
+		);
+		if (action) {
+			await vscode.commands.executeCommand('fanucLs.io.writeToRobot');
+		}
+	}
+
 	async function uploadLocalFile(
 		localPath: string,
 		controller: ControllerConfig,
 		remoteDir?: string,
 		remotePathIn?: string,
 		confirm = true
-	): Promise<void> {
+	): Promise<boolean> {
 		const remotePath = remotePathIn ?? ftp.joinRemote(remoteDir!, path.basename(localPath));
 		const opts = getFtpOptions();
+
+		// Diagnose-/Berichtsdateien erzeugt die Steuerung selbst - Hochladen schlägt immer fehl (#21)
+		if (isReadOnlyReport(path.basename(localPath))) {
+			await explainReadOnlyReport(localPath);
+			return false;
+		}
 
 		if (opts.confirmUpload && confirm) {
 			const dir = remotePath.replace(/[^/:]*$/, '') || remoteDir || '';
@@ -450,7 +528,7 @@ export function registerCommands(
 				: `${path.basename(localPath)} nach ${remotePath} auf ${controller.name} laden?`;
 			const go = await vscode.window.showWarningMessage(question, { modal: true }, 'Laden');
 			if (go !== 'Laden') {
-				return;
+				return false;
 			}
 		}
 
@@ -465,6 +543,7 @@ export function registerCommands(
 		} else {
 			vscode.window.showInformationMessage(`${path.basename(localPath)} wurde nach ${remotePath} geladen.`);
 		}
+		return true;
 	}
 
 	/**
@@ -520,11 +599,13 @@ export function registerCommands(
 			vscode.window.showInformationMessage(`${name}: lokale Datei und ${controller.name} sind identisch.`);
 			return;
 		}
+		// Klar beschriften, was links (Roboter, online) und rechts (PC, offline) steht (#23)
+		const local = await locate(localPath, (p) => originOf(context, p));
 		await vscode.commands.executeCommand(
 			'vscode.diff',
 			vscode.Uri.file(remoteCopy),
 			vscode.Uri.file(localPath),
-			`${name}: ${controller.name} ↔ lokal`
+			`${name}: 🤖 Roboter ${controller.name} (online, jetzt) ↔ 💻 ${local.label}`
 		);
 	}
 

@@ -79,11 +79,14 @@ export const SECTIONS: Section[] = [
 		title: 'Ein-/Ausgänge',
 		tiles: [
 			{ command: 'fanucLs.io.importFromController', icon: '📥', label: 'Vom Roboter importieren', hint: 'E/A-Kommentare vom Roboter übernehmen' },
+			{ command: 'fanucLs.io.writeToRobot', icon: '✍️', label: 'Kommentare auf Roboter', hint: 'E/A-Kommentare aus der Liste auf den Roboter schreiben (über ein KAREL-Programm)' },
 			{ command: 'fanucLs.io.importCsv', icon: '📑', label: 'CSV importieren', hint: 'E/A-Liste aus einer CSV-Datei laden' },
 			{ command: 'fanucLs.io.exportCsv', icon: '📤', label: 'CSV exportieren', hint: 'E/A-Liste als CSV speichern (z. B. für Excel)' },
 			{ command: 'fanucLs.io.editRanges', icon: '📏', label: 'Gültige Bereiche', hint: 'Erlaubte Nummernbereiche für DO, DI, R, PR … festlegen' },
 			{ command: 'fanucLs.io.toggleStatus', icon: '👁️', label: 'Status ein/aus', hint: 'Gespeicherten E/A-Status (ON/OFF) im Editor ein- oder ausblenden' },
 			{ command: 'fanucLs.io.stripStatus', icon: '🧹', label: 'Status entfernen', hint: 'Gespeicherten E/A-Status aus dem Programm löschen', needs: 'fanuc-ls' },
+			{ command: 'fanucLs.io.filter', icon: '🔎', label: 'E/A suchen', hint: 'E/A-Liste nach Nummer oder Kommentar filtern' },
+			{ command: 'fanucLs.io.clearFilter', icon: '🧽', label: 'E/A-Filter aufheben', hint: 'Wieder alle Signale anzeigen' },
 			{ command: 'fanucLs.io.refresh', icon: '🔄', label: 'Neu laden', hint: 'E/A-Liste neu einlesen' }
 		]
 	},
@@ -102,6 +105,8 @@ export const SECTIONS: Section[] = [
 			{ command: 'fanucLs.downloadDevice', icon: '🗄️', label: 'Gerät sichern', hint: 'Alle Dateien eines Geräts (md:, fr: …) sichern' },
 			{ command: 'fanucLs.compareRemoteWithLocal', icon: '↔️', label: 'Roboterdatei vergleichen', hint: 'Datei auf dem Roboter mit der Kopie am PC vergleichen' },
 			{ command: 'fanucLs.deleteRemoteFile', icon: '❌', label: 'Datei löschen', hint: 'Datei auf dem Roboter löschen (mit Rückfrage)' },
+			{ command: 'fanucLs.filter', icon: '🔎', label: 'Dateien filtern', hint: 'Im Controller-Baum nur bestimmte Dateitypen oder Namen anzeigen' },
+			{ command: 'fanucLs.clearFilter', icon: '🧽', label: 'Filter aufheben', hint: 'Wieder alle Dateien im Controller-Baum anzeigen' },
 			{ command: 'fanucLs.refresh', icon: '🔄', label: 'Aktualisieren', hint: 'Dateilisten der Roboter neu laden' },
 			{ command: 'fanucLs.showLog', icon: '📜', label: 'FTP-Protokoll', hint: 'Protokoll der Verbindungen für die Fehlersuche' }
 		]
@@ -112,6 +117,7 @@ export const SECTIONS: Section[] = [
 		tiles: [
 			{ command: 'fanucLs.clone.create', icon: '🧬', label: 'Klonen / aktualisieren', hint: 'Dateien eines Roboters als Arbeitskopie im Ordner ablegen' },
 			{ command: 'fanucLs.clone.showChanges', icon: '📝', label: 'Änderungen anzeigen', hint: 'Was wurde im Klon seit dem Holen geändert?' },
+			{ command: 'fanucLs.clone.report', icon: '📋', label: 'Änderungsbericht', hint: 'Bericht: was würde beim Übertragen auf dem Roboter geändert?' },
 			{ command: 'fanucLs.clone.pushChanges', icon: '🚀', label: 'Änderungen übertragen', hint: 'Geänderte Dateien des Klons auf den Roboter laden' }
 		]
 	},

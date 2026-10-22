@@ -1,5 +1,28 @@
 # Änderungen
 
+## 0.7.0
+
+Bearbeitet die Rückmeldungen aus dem Praxistest (#18 bis #25). Details im [Wiki](https://github.com/frontline-networks/fanuc-ls-vscode/wiki/Controller-und-FTP).
+
+### Neu
+
+- **Online-Status der Roboter** (#19): grünes bzw. rotes Symbol mit „● online“ / „○ nicht erreichbar“ im Controller-Baum, 🟢/🔴 auf der Schweißer-Startseite. Regelmäßige Prüfung, solange die Ansicht sichtbar ist (`fanucLs.ftp.statusInterval`, Standard 60 s).
+- **Online/Offline auf einen Blick** (#23): Die Statusleiste zeigt, woher die geöffnete Datei stammt: *Roboter … (Ansicht)* in Orange, *Stand auf dem Roboter (Vergleich)*, *Klon von … (offline)* oder *PC-Kopie (offline)*. Vergleiche sind eindeutig beschriftet: links 🤖 Roboter (online, jetzt), rechts 💻 PC.
+- **Änderungsbericht für den Klon** (#24): Übersicht aller Änderungen gegenüber dem aktuellen Stand auf dem Roboter, mit Konflikten, betroffenen Programmzeilen, Positionen und Diff. Aufrufbar über die Controller-Ansicht, *Klon: Änderungen anzeigen* und direkt vor dem Übertragen (*Erst Bericht anzeigen*).
+- **Filtern und Suchen** (#20): Controller-Baum nach Dateityp und Namen (auch `H*.LS`), E/A-Liste nach Nummer oder Kommentar.
+- **E/A-Kommentare auf den Roboter schreiben** (#21): erzeugt ein KAREL-Programm (`SET_PORT_CMT`), kompiliert es mit ktrans und lädt es hoch; am Handgerät einmal starten. *Noch nicht am echten Roboter erprobt.*
+
+### Verbessert
+
+- **Aktualisieren** lädt vom Roboter angesehene, unveränderte Programme neu, z. B. für einen aktuellen E/A-Status (#18).
+- **E/A-Bereiche** (#25): Erweiterte Bereiche werden in den Benutzereinstellungen gespeichert und gelten dauerhaft, auch in anderen Ordnern und für direkt vom Roboter geöffnete Programme. Die Ansicht E/A und die Warnung erklären, wozu die Bereiche dienen und dass importierte Signale immer gültig sind.
+- **Diagnosedateien** wie `IOSTATE.DG` oder `ERRALL.LS` werden nicht mehr hochzuladen versucht; stattdessen kommt eine Erklärung, bei `IOSTATE.DG` mit dem Weg zum Ändern der E/A-Kommentare (#21). Abgelehnte Uploads (FTP 550–553) nennen die typischen Gründe.
+- Dateidatum in Controller-Baum und Dateiauswahl im deutschen Format.
+
+### Behoben
+
+- **Syntaxprüfung:** Klammern in Kommentaren (`DO[1:Greifer (auf]`, `LBL[3:Teil (li]`, `MESSAGE[…]`, auskommentierte `//`-Zeilen) wurden als unausgeglichen gemeldet (#22).
+
 ## 0.6.0
 
 **Schweißer-Oberfläche:** ein zweiter Seitenreiter *FANUC Schweißen* mit allen Funktionen als kompakte Kacheln und Schritt-für-Schritt-Assistenten. Damit lässt sich die Extension ohne Programmiererfahrung bedienen. Details im [Wiki](https://github.com/frontline-networks/fanuc-ls-vscode/wiki/Schwei%C3%9Fer-Oberfl%C3%A4che).

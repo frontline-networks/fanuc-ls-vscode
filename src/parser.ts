@@ -208,10 +208,22 @@ function leadingWhitespace(s: string): number {
 	return m ? m[0].length : 0;
 }
 
-/** Entfernt Kommentare (`!... `) und Zeichenketten, damit Regex-Treffer nicht aus Text stammen. */
+/**
+ * Entfernt Kommentare und Zeichenketten (durch Leerzeichen ersetzt, Länge bleibt gleich),
+ * damit Regex-Treffer und Klammerzählung nicht aus Text stammen:
+ * `!Bemerkung`, auskommentierte Zeilen `//…`, Kommentare in Klammern `DO[1:Greifer (auf]`,
+ * `MESSAGE[…]`, Zeichenketten in "…" und '…'.
+ */
 export function withoutCommentsAndStrings(text: string): string {
-	let out = text.replace(/"[^"]*"/g, (m) => ' '.repeat(m.length));
-	out = out.replace(/'[^']*'/g, (m) => ' '.repeat(m.length));
+	const blank = (m: string) => ' '.repeat(m.length);
+	if (/^\s*(\/\/|--eg:)/i.test(text)) {
+		return blank(text);
+	}
+	let out = text.replace(/"[^"]*"/g, blank);
+	out = out.replace(/'[^']*'/g, blank);
+	out = out.replace(/\b(MESSAGE\s*\[)([^\]]*)\]/gi, (_m, head: string, body: string) => head + blank(body) + ']');
+	// Kommentar hinter der Nummer: DO[1:Text], R[5:Text], LBL[3:Text], PR[GP1:2:Text] …
+	out = out.replace(/(\[\s*(?:GP\d+\s*:\s*)?(?:R\[\s*)?\d+\s*\]?\s*(?:,\s*\d+\s*)?:)([^\]\[]*)\]/gi, (_m, head: string, body: string) => head + blank(body) + ']');
 	const bang = out.indexOf('!');
 	if (bang >= 0) {
 		out = out.slice(0, bang) + ' '.repeat(out.length - bang);

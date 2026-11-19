@@ -65,9 +65,21 @@ Die Signalnamen aus der Signal-Excel (z. B. **Fanuc IO-Mapping.xls** mit den Bl�
 
 ![Fertig](images/33-excel-io-fertig.png)
 
-### Ladefehler VARS-004 / VARS-032 („Unknown variable name“)
+### Ladefehler VARS-004 / VARS-032
 
-Diese Alarme beim Laden bedeuten, dass die Datei nicht zur E/A-Konfiguration des Roboters passt. Häufigste Ursache: **Die Vorlage stammt nicht vom Zielroboter** (anderer Roboter oder anderer Softwarestand). Dann enthält die Datei Variablen oder Feldlängen, die der Roboter nicht kennt, und sie würde außerdem seine E/A-Zuordnungen überschreiben.
+| Alarm | Text laut FANUC | Bedeutung hier |
+|---|---|---|
+| **VARS-032** | *Variable size too big* – die Variable ist größer als 65 535 Byte | Zu viele Kommentare: Jeder Kommentar belegt 20 Byte im Feld `NAME_NAME` (und `NAME_NAME2`), also passen höchstens **3 276** in eine `DIOCFGSV.IO`. |
+| **VARS-004** | *%s memory not updated* – die Variable existiert im Speicher, die Daten konnten nicht geladen werden | Folgefehler: Die zu große bzw. unpassende Variable ersetzt den Stand im Speicher nicht. |
+
+**Größengrenze im Assistenten:** Die Vorschau zeigt, wie viele Kommentare die Datei enthält und wie viele höchstens passen. Wird die Grenze überschritten, lässt sich keine Datei erzeugen. Abhilfe:
+
+- Signaltypen abwählen (Schritt 2) oder *Vorhandene Kommentare für nicht zugeordnete Signale entfernen*.
+- **Stattdessen per KAREL-Programm setzen:** Der Assistent erzeugt `.fanuc/io/FLIOCMT.KL` mit allen Kommentaren (KAREL-Built-in `SET_PORT_CMT`). Kompilieren (ktrans), `FLIOCMT.PC` auf den Roboter laden, am Handgerät einmal starten. Dafür gilt die Größengrenze der Datei nicht. Danach die `DIOCFGSV.IO` sichern. Die Zuordnungen (Rack/Slot) setzt das Programm nicht; dafür eine `DIOCFGSV.IO` ohne Kommentare erzeugen oder am Handgerät einrichten. *Noch nicht am Roboter erprobt.*
+
+![KAREL-Ausweg](images/36-excel-io-karel.png)
+
+Weitere mögliche Ursache: **Die Vorlage stammt nicht vom Zielroboter** (anderer Roboter oder Softwarestand). Dann enthält die Datei Variablen oder Feldlängen, die der Roboter nicht kennt, und sie würde außerdem seine E/A-Zuordnungen überschreiben.
 
 Der Assistent hilft dabei:
 

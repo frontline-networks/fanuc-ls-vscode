@@ -324,6 +324,8 @@ export interface BuildOptions {
 	onlyExisting?: boolean;
 	/** Zuordnungen aus der Excel übernehmen (ersetzt überlappende Zuordnungen gleichen Typs) */
 	assignments?: Assignment[];
+	/** vorhandene Kommentare der Vorlage für Signale ohne Zuordnung entfernen (schafft Platz) */
+	dropUnassigned?: boolean;
 }
 
 export interface Change {
@@ -350,6 +352,10 @@ export interface BuildResult {
 	assignmentsAfter: Assignment[];
 	asgAdded: Assignment[];
 	asgRemoved: Assignment[];
+	/** Felder über der FANUC-Grenze von 65 535 Byte (VARS-032 beim Laden) */
+	oversized: SizeIssue[];
+	/** höchstens so viele Kommentare passen in die Datei */
+	capacity: number;
 }
 
 /** Liegt das Signal in einem Zuordnungsbereich der Vorlage? Typen ohne jede Zuordnung gelten als unbekannt (undefined). */
@@ -381,6 +387,14 @@ export function buildDioCfg(template: Buffer, items: SourceItem[], opts: BuildOp
 	const skipped = typed.length - use.length;
 	const sourceTypes = new Set(byType.map((i) => i.type));
 	const next = new Map<CommentKey, string>(opts.replace && !opts.onlyExisting ? [...old].filter(([k]) => !sourceTypes.has(unkey(k)[0])) : old);
+	if (opts.dropUnassigned && !opts.onlyExisting) {
+		for (const k of [...next.keys()]) {
+			const [t, n] = unkey(k);
+			if (isAssigned(assignments, t, n) === false) {
+				next.delete(k);
+			}
+		}
+	}
 
 	const truncated: BuildResult['truncated'] = [];
 	for (const item of use) {
@@ -437,7 +451,8 @@ export function buildDioCfg(template: Buffer, items: SourceItem[], opts: BuildOp
 	}
 	return {
 		output, comments: ordered, added, changed, removed, truncated, perType, unassigned, skipped,
-		assignmentsAfter: assignments, asgAdded: merged.added, asgRemoved: merged.removed
+		assignmentsAfter: assignments, asgAdded: merged.added, asgRemoved: merged.removed,
+		oversized: sizeIssues(check), capacity: commentCapacity(check)
 	};
 }
 
@@ -465,6 +480,35 @@ export interface VarInfo {
 	elemSize?: number;
 	length?: number;
 	value?: number;
+	/** Größe der Daten in Byte (Felder) */
+	bytes?: number;
+}
+
+/** FANUC-Grenze je Variable beim Laden (VARS-032 "Variable size too big") */
+export const MAX_VAR_BYTES = 65535;
+
+export interface SizeIssue {
+	name: string;
+	bytes: number;
+	entries: number;
+	/** höchstens so viele Einträge passen */
+	maxEntries: number;
+}
+
+/** Felder, die beim Laden VARS-032 auslösen würden (größer als 65 535 Byte). */
+export function sizeIssues(cfg: DioCfg): SizeIssue[] {
+	return describeVars(cfg)
+		.filter((v) => v.bytes !== undefined && v.bytes > MAX_VAR_BYTES)
+		.map((v) => ({ name: v.name, bytes: v.bytes!, entries: v.length!, maxEntries: Math.floor(MAX_VAR_BYTES / v.elemSize!) }));
+}
+
+/** Wie viele Kommentare passen höchstens in die Datei (kleinste Kapazität der NAME_*-Felder)? */
+export function commentCapacity(cfg: DioCfg): number {
+	return Math.min(
+		...describeVars(cfg)
+			.filter((v) => v.name.startsWith('NAME_') && v.elemSize)
+			.map((v) => Math.floor(MAX_VAR_BYTES / v.elemSize!))
+	);
 }
 
 export function describeVars(cfg: DioCfg): VarInfo[] {
@@ -475,7 +519,8 @@ export function describeVars(cfg: DioCfg): VarInfo[] {
 		t2: r.t2,
 		elemSize: r.elemSize,
 		length: Array.isArray(r.value) ? r.value.length : undefined,
-		value: typeof r.value === 'number' ? r.value : undefined
+		value: typeof r.value === 'number' ? r.value : undefined,
+		bytes: Array.isArray(r.value) && r.elemSize !== undefined ? r.value.length * r.elemSize : undefined
 	}));
 }
 
@@ -539,9 +584,14 @@ export function dioReport(name: string, cfg: DioCfg, otherName?: string, other?:
 	for (const [t, r] of ranges) {
 		lines.push(`  - ${t}: ${r.join(', ')}`);
 	}
-	lines.push('', '## Variablen', '', '| Name | Art | Typ | Elementgröße | Länge/Wert |', '|---|---|---|---|---|');
+	const issues = sizeIssues(cfg);
+	if (issues.length) {
+		lines.push('', `> ⛔ **Zu groß für die Steuerung (VARS-032):** ${issues.map((i) => `${i.name} ${i.bytes} Byte (${i.entries} Einträge, höchstens ${i.maxEntries})`).join('; ')}. Grenze: ${MAX_VAR_BYTES} Byte je Variable.`);
+	}
+	lines.push('', '## Variablen', '', '| Name | Art | Typ | Elementgröße | Länge/Wert | Byte |', '|---|---|---|---|---|---|');
 	for (const v of describeVars(cfg)) {
-		lines.push(`| ${v.name} | ${v.kind} | ${v.t1}/${v.t2} | ${v.elemSize ?? ''} | ${v.length ?? v.value ?? ''} |`);
+		const b = v.bytes === undefined ? '' : `${v.bytes}${v.bytes > MAX_VAR_BYTES ? ' ⛔' : ''}`;
+		lines.push(`| ${v.name} | ${v.kind} | ${v.t1}/${v.t2} | ${v.elemSize ?? ''} | ${v.length ?? v.value ?? ''} | ${b} |`);
 	}
 	if (other && otherName) {
 		const c = compareDioCfg(cfg, other);

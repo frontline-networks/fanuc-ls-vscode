@@ -212,3 +212,29 @@ test('Zuordnungen aus der Excel: Bereiche, GI/GO, Zusammenführen (#fehlende E/A
 	// Werte, die nicht in die Feldbreite passen (Rack 1 Byte)
 	assert.throws(() => D.buildDioCfg(TEMPLATE, [], { assignments: [{ type: 1, start: 300, count: 1, rack: 300, slot: 1, phyType: 1, phyStart: 1 }] }), /rack = 300 passt nicht in ASG_RACK_NO/);
 });
+
+test('VARS-032: Grenze von 65 535 Byte je Variable', () => {
+	const cfg = D.DioCfg.parse(TEMPLATE);
+	assert.strictEqual(D.commentCapacity(cfg), 3276, '65 535 / 20 Byte je Kommentar');
+	assert.deepStrictEqual(D.sizeIssues(cfg), []);
+
+	const many = Array.from({ length: 3300 }, (_, i) => ({ type: 2, no: 1000 + i, text: 'Signal ' + i, source: 't' }));
+	const big = D.buildDioCfg(TEMPLATE, many);
+	assert.strictEqual(big.comments.size, 3303);
+	assert.deepStrictEqual(big.oversized.map((i) => i.name), ['NAME_NAME', 'NAME_NAME2']);
+	assert.strictEqual(big.oversized[0].bytes, 3303 * 20);
+	assert.strictEqual(big.oversized[0].maxEntries, 3276);
+	assert.match(D.dioReport('x', D.DioCfg.parse(big.output)), /Zu groß für die Steuerung \(VARS-032\)/);
+
+	const fits = D.buildDioCfg(TEMPLATE, many.slice(0, 3000));
+	assert.deepStrictEqual(fits.oversized, []);
+
+	// Platz schaffen: Kommentare der Vorlage für nicht zugeordnete Signale entfernen (DO[12] liegt in DO 1–40 und bleibt)
+	const drop = D.buildDioCfg(TEMPLATE, [{ type: 1, no: 500, text: 'neu', source: 't' }], { dropUnassigned: true, onlyAssigned: true });
+	assert.deepStrictEqual([...drop.comments.keys()], ['11:1', '1:1', '2:12']);
+	const tpl2 = Buffer.concat([HEADER, scalar('$$VERSION', 1), ints('ASG_LOG_PT', 1, [1]), ints('ASG_LOG_PN', 2, [1]), ints('ASG_N_PTS', 2, [8]), ints('ASG_RACK_NO', 1, [0]), ints('ASG_SLOT_NO', 1, [1]), ints('ASG_PHY_PT', 1, [1]), ints('ASG_PHY_PN', 2, [1]),
+		ints('NAME_LOG_PT', 1, [1, 1]), ints('NAME_LOG_PN', 2, [3, 900]), strings('NAME_NAME', ['bleibt', 'weg']), strings('NAME_NAME2', ['', ''])]);
+	const d2 = D.buildDioCfg(tpl2, [], { dropUnassigned: true });
+	assert.deepStrictEqual([...d2.comments.keys()], ['1:3']);
+	assert.deepStrictEqual(d2.removed.map((c) => D.portLabel(c.type, c.no)), ['DI[900]']);
+});

@@ -10,9 +10,10 @@ import { ControllerConfig, devicesOf, getControllers } from './config';
 import { FanucApi } from './commands';
 import * as ftp from './ftp';
 import { readWorkbook } from './excelReader';
-import { AssignmentReport, BuildResult, DioCfg, MAX_COMMENT, PORT_NAMES, PORT_TYPES, SourceReport, assignmentLabel, buildDioCfg, compareDioCfg, dioReport, portLabel, readAssignmentWorkbook, readSignalWorkbook } from './dioCfg';
+import { AssignmentReport, BuildResult, DioCfg, MAX_COMMENT, MAX_VAR_BYTES, PORT_NAMES, PORT_TYPES, SourceReport, assignmentLabel, buildDioCfg, compareDioCfg, dioReport, portLabel, readAssignmentWorkbook, readSignalWorkbook } from './dioCfg';
 import { IoStore } from './io';
-import { normalizeIoType } from './ioCore';
+import { IoEntry, normalizeIoType } from './ioCore';
+import { KAREL_PROGRAM_NAME, buildIoCommentProgram } from './ioKarel';
 import { ftpErrorText } from './welder';
 import { Wizard, backButton, button, cancelButton, card, checkCard, esc, field, list, message, page, radioCard, str } from './welderUi';
 
@@ -58,6 +59,7 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 	let replace = false;
 	let onlyAssigned: boolean | undefined;
 	let onlyExisting = false;
+	let dropUnassigned = false;
 	let compareNote = '';
 	let toIoList = !!vscode.workspace.workspaceFolders?.length;
 	let step = 1;
@@ -261,7 +263,7 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 				// Standard: nur zugeordnete Signale, sobald die Signale weder in der Vorlage noch in der Excel zugeordnet sind
 				onlyAssigned = buildDioCfg(template!.buf, items, { replace, types, assignments: asg }).unassigned.length > 0;
 			}
-			result = buildDioCfg(template!.buf, items, { replace, types, onlyAssigned, onlyExisting, assignments: asg });
+			result = buildDioCfg(template!.buf, items, { replace, types, onlyAssigned, onlyExisting, assignments: asg, dropUnassigned });
 		} catch (err) {
 			error = esc(err instanceof Error ? err.message : String(err));
 			step = 3;
@@ -301,6 +303,20 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 					)
 				: '';
 			const robots = getControllers();
+			const nameBytes = result.comments.size * 20;
+			const sizeMsg = result.oversized.length
+				? message(
+						'error',
+						`<b>Zu viele Kommentare für eine DIOCFGSV.IO: ${result.comments.size}, höchstens ${result.capacity} möglich.</b> ` +
+							`FANUC lädt keine Variable über ${MAX_VAR_BYTES.toLocaleString('de-DE')} Byte (Alarm <b>VARS-032</b> „Variable size too big“, danach <b>VARS-004</b> „memory not updated“). ` +
+							`Betroffen: ${result.oversized.map((i) => `${i.name} ${i.bytes.toLocaleString('de-DE')} Byte`).join(', ')}.<br>` +
+							'Abhilfe: Signaltypen abwählen (Zurück), nicht zugeordnete Kommentare entfernen (Option unten) – oder die Kommentare <b>per KAREL-Programm</b> direkt setzen, dafür gilt diese Grenze nicht.'
+					)
+				: message(
+						nameBytes > MAX_VAR_BYTES * 0.8 ? 'warn' : 'info',
+						`Platz in der Datei: ${result.comments.size} von höchstens ${result.capacity} Kommentaren (${Math.round((nameBytes / MAX_VAR_BYTES) * 100)} % der FANUC-Grenze von ${MAX_VAR_BYTES.toLocaleString('de-DE')} Byte je Variable).` +
+							(nameBytes > MAX_VAR_BYTES * 0.8 ? ' Kommt beim Laden trotzdem VARS-032, bitte melden – dann rechnet die Steuerung mit mehr Byte je Eintrag; die Kommentare lassen sich alternativ per KAREL-Programm setzen.' : '')
+					);
 			const r = await w.step(
 				page({
 					progress: [4, TOTAL],
@@ -308,6 +324,7 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 					intro: `Vorlage: <b>${esc(template!.label)}</b> · ${cfg.assignments().length} Zuordnungen in der Vorlage.`,
 					error,
 					content:
+						sizeMsg +
 						mismatch +
 						compareNote +
 						(template!.file && robots.length
@@ -320,6 +337,7 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 							? checkCard('opt', 'asg', 'Hardware-Zuordnungen aus der Excel übernehmen', 'Legt fehlende E/A-Bereiche und GI/GO an (Rack, Slot, Startpunkt aus der Excel). Überschneidende Zuordnungen gleichen Typs in der Vorlage werden ersetzt, alle anderen bleiben.', withAssignments)
 							: '') +
 						checkCard('opt', 'assigned', 'Nur Signale übernehmen, die in der Vorlage zugeordnet sind', 'Kommentare für Signale ohne Hardware-Zuordnung in der Vorlage werden weggelassen.', !!onlyAssigned) +
+						checkCard('opt', 'drop', 'Vorhandene Kommentare für nicht zugeordnete Signale entfernen', 'Löscht Kommentare der Vorlage für Signale ohne Hardware-Zuordnung und schafft so Platz (Grenze 65 535 Byte je Variable).', dropUnassigned) +
 						checkCard('opt', 'existing', 'Testdatei: nur vorhandene Kommentare ändern', 'Es kommen keine Einträge hinzu und keine fallen weg; die Felder behalten die Länge der Vorlage. Hilft beim Eingrenzen von Ladefehlern (VARS-032).', onlyExisting) +
 						(result.skipped ? message('info', `${result.skipped} Signalname(n) werden wegen dieser Optionen nicht übernommen.`) : '') +
 						button('Vorschau aktualisieren', 'refresh') +
@@ -343,7 +361,11 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 						(vscode.workspace.workspaceFolders?.length
 							? checkCard('iolist', '1', 'Auch in die E/A-Liste dieser Arbeitsumgebung übernehmen', 'Dann zeigen Hover und Vervollständigung im Editor sofort die neuen Signalnamen.', toIoList)
 							: ''),
-					buttons: backButton() + button('💾 DIOCFGSV.IO erzeugen', 'build', { primary: true }) + cancelButton()
+					buttons:
+						backButton() +
+						(result.oversized.length ? '' : button('💾 DIOCFGSV.IO erzeugen', 'build', { primary: true })) +
+						button('✍️ Stattdessen per KAREL-Programm setzen', 'karel', { primary: result.oversized.length > 0 }) +
+						cancelButton()
 				})
 			);
 			error = undefined;
@@ -353,6 +375,7 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 			replace = str(r.values.mode) === 'replace';
 			onlyAssigned = list(r.values.opt).includes('assigned');
 			onlyExisting = list(r.values.opt).includes('existing');
+			dropUnassigned = list(r.values.opt).includes('drop');
 			if (asgReport?.assignments.length) {
 				withAssignments = list(r.values.opt).includes('asg');
 			}
@@ -363,6 +386,10 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 			}
 			if (r.act === 'refresh') {
 				continue;
+			}
+			if (r.act === 'karel') {
+				await karelAlternative(w, api, report!.items.filter((i) => types.includes(i.type)), template!.controller, path.dirname(excel!));
+				return;
 			}
 			if (r.act === 'compare') {
 				const c = robots[Number(r.arg)];
@@ -421,11 +448,82 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 /** Hilfe bei Ladefehlern am Roboter. */
 const TROUBLESHOOTING =
 	'<details><summary><b>Alarme beim Laden (VARS-004, VARS-032, „Unknown variable name“)?</b></summary><ul>' +
+	'<li><b>VARS-032 „Variable size too big“:</b> eine Variable der Datei ist größer als 65 535 Byte – zu viele Kommentare. Weniger Kommentare übernehmen oder per KAREL-Programm setzen.</li>' +
+	'<li><b>VARS-004 „memory not updated“:</b> Folgefehler – die Variable konnte den Stand im Speicher nicht ersetzen.</li>' +
 	'<li><b>Vorlage vom falschen Roboter oder Softwarestand:</b> Die Datei kennt Variablen, die der Roboter nicht hat, oder umgekehrt. Vorlage direkt vom Zielroboter holen (Schritt 3) bzw. mit <i>Mit … vergleichen</i> prüfen.</li>' +
 	'<li><b>Nicht im Controlled Start geladen:</b> Im normalen Betrieb lassen sich die Felder der E/A-Konfiguration nicht in der Länge ändern.</li>' +
 	'<li><b>Eingrenzen:</b> eine Testdatei mit der Option <i>nur vorhandene Kommentare ändern</i> erzeugen. Lädt sie fehlerfrei, liegt es an der Anzahl der Einträge.</li>' +
 	'<li>Den genauen Alarmtext mit <b>DETAIL</b> in der Alarmhistorie notieren (enthält meist den Variablennamen) und den Bericht <i>FANUC: DIOCFGSV.IO prüfen / vergleichen</i> erstellen.</li>' +
 	'</ul></details>';
+
+/**
+ * Ausweg bei zu vielen Kommentaren: ein KAREL-Programm (SET_PORT_CMT) setzt die Kommentare
+ * direkt im Speicher der Steuerung - ohne die Größengrenze einer Variablen in DIOCFGSV.IO.
+ */
+async function karelAlternative(
+	w: Wizard,
+	api: FanucApi,
+	items: { type: number; no: number; text: string }[],
+	controller: ControllerConfig | undefined,
+	fallbackDir: string
+): Promise<void> {
+	const entries: IoEntry[] = items
+		.filter((i) => i.text.trim())
+		.map((i) => ({ type: normalizeIoType(PORT_NAMES[i.type] ?? '')!, index: i.no, comment: i.text.trim() }))
+		.filter((e) => e.type);
+	const result = buildIoCommentProgram(entries, controller?.name ?? 'Roboter');
+	const base = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? (await api.resolveDownloadDir()) ?? fallbackDir;
+	const dir = path.join(base, '.fanuc', 'io');
+	await fs.mkdir(dir, { recursive: true });
+	const kl = path.join(dir, `${KAREL_PROGRAM_NAME}.KL`);
+	await fs.writeFile(kl, result.source, 'latin1');
+	w.onCommand = (cmd) => {
+		if (cmd === 'open') {
+			void vscode.window.showTextDocument(vscode.Uri.file(kl), { preview: false, viewColumn: vscode.ViewColumn.One });
+		} else if (cmd === 'compile') {
+			void vscode.commands.executeCommand('fanucLs.karel.compile', vscode.Uri.file(kl));
+		}
+	};
+	let note = '';
+	for (;;) {
+		const pcName = (await fs.readdir(dir)).find((f) => f.toLowerCase() === `${KAREL_PROGRAM_NAME.toLowerCase()}.pc`);
+		const r = await w.step(
+			page({
+				progress: [5, TOTAL],
+				title: 'Kommentare per KAREL-Programm',
+				content:
+					message('ok', `<b>${result.written} Kommentare</b> in <code>${esc(kl)}</code> geschrieben.` +
+						(result.truncated.length ? ` ${result.truncated.length} auf 24 Zeichen gekürzt.` : '') +
+						(result.skipped.length ? ` Nicht unterstützt: ${esc(result.skipped.join(', '))}.` : '')) +
+					note +
+					'<h2>So geht es weiter</h2><ol>' +
+					'<li><b>Kompilieren</b> mit ktrans (Einstellung <code>fanucLs.karel.ktransPath</code>, aus ROBOGUIDE) – oder die .KL-Datei in ROBOGUIDE übersetzen und <code>FLIOCMT.PC</code> in denselben Ordner legen.</li>' +
+					'<li><b>FLIOCMT.PC auf den Roboter laden</b> (unten oder per FTP nach md:).</li>' +
+					'<li>Am Programmierhandgerät <b>SELECT → FLIOCMT</b> auswählen und einmal starten. Die Anzeige meldet, wie viele Kommentare gesetzt wurden; Fehler stehen in der Alarmliste.</li>' +
+					'<li>Danach <b>DIOCFGSV.IO sichern</b> – sie enthält dann die Kommentare im Format der Steuerung.</li></ol>' +
+					message('info', 'Die E/A-Zuordnungen (Rack, Slot) setzt das KAREL-Programm nicht. Dafür eine DIOCFGSV.IO ohne Kommentare erzeugen (Typen abwählen) oder die Zuordnungen am Handgerät einrichten. Am echten Roboter noch nicht erprobt.'),
+				buttons:
+					button('📄 KAREL-Datei öffnen', 'cmd:open') +
+					button('🛠️ Kompilieren', 'cmd:compile') +
+					(controller ? button(pcName ? `⬆️ ${pcName} auf ${esc(controller.name)} laden` : '🔄 Nach dem Kompilieren hier aktualisieren', pcName ? 'upload' : 'refresh', { primary: true }) : '') +
+					button('Fertig', 'done')
+			})
+		);
+		if (r.act === 'refresh') {
+			continue;
+		}
+		if (r.act !== 'upload' || !controller || !pcName) {
+			return w.close();
+		}
+		w.busy(`${pcName} wird auf ${controller.name} geladen …`);
+		try {
+			await ftp.uploadFile(controller, api.secrets, path.join(dir, pcName), `md:${KAREL_PROGRAM_NAME}.PC`);
+			note = message('ok', `${esc(pcName)} ist auf ${esc(controller.name)}. Jetzt am Handgerät SELECT → ${KAREL_PROGRAM_NAME} starten.`);
+		} catch (err) {
+			note = message('error', ftpErrorText(err));
+		}
+	}
+}
 
 async function fetchRobotDio(api: FanucApi, c: ControllerConfig): Promise<Buffer> {
 	const tmp = path.join(os.tmpdir(), 'fanuc-ls', 'io', `${c.name.replace(/[^\w.-]+/g, '_')}_DIOCFGSV_check.IO`);

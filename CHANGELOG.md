@@ -1,15 +1,22 @@
 # Änderungen
 
+## 0.9.1
+
+Die Alarmtexte aus dem Test am Roboter klären die Ladefehler: **VARS-032** „Variable size too big“ – eine Variable der `DIOCFGSV.IO` darf höchstens 65 535 Byte groß sein; **VARS-004** „memory not updated“ ist der Folgefehler.
+
+### Neu
+
+- **Größenprüfung** im Assistenten *Excel → IO-Datei*: Je Kommentar belegt die Datei 20 Byte pro Textfeld, es passen also höchstens 3 276 Kommentare. Die Vorschau zeigt die Auslastung; über der Grenze wird keine Datei erzeugt.
+- **Platz schaffen:** Option, vorhandene Kommentare der Vorlage für nicht zugeordnete Signale zu entfernen.
+- **Ausweg ohne Größengrenze:** *Stattdessen per KAREL-Programm setzen* erzeugt `FLIOCMT.KL` (SET_PORT_CMT) mit allen Kommentaren, kompiliert es (ktrans) und lädt `FLIOCMT.PC` auf den Roboter. *Noch nicht am Roboter erprobt.*
+- Der Prüfbericht zeigt die Größe jeder Variable und markiert zu große mit ⛔.
+
 ## 0.9.0
 
 ### Neu
 
 - **Hardware-Zuordnungen aus der Signal-Excel** im Assistenten *Excel → IO-Datei*: fehlende DI/DO-Bereiche (Rack, Slot, StartPt; aufeinanderfolgende Signale werden zusammengefasst) und GI/GO (Rack, Slot, Start Pt, Num Pts) werden in der `DIOCFGSV.IO` angelegt. Überschneidende Zuordnungen gleichen Typs werden ersetzt, alle anderen bleiben. Vorschau mit neuen und ersetzten Zuordnungen, Kontrolle nach dem Schreiben. *Die Ablage der GI/GO-Zuordnungen ist am Roboter noch nicht bestätigt.*
 - Der Prüfbericht zeigt die Zuordnungen je Typ mit Rack und Slot.
-
-### Bekannt
-
-- VARS-004/VARS-032 beim Laden sind noch nicht geklärt (siehe Wiki *Ein und Ausgänge*, Abschnitt Ladefehler).
 
 ## 0.8.1
 

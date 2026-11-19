@@ -46,7 +46,16 @@ Die Signalnamen aus der Signal-Excel (z. B. **Fanuc IO-Mapping.xls** mit den Bl�
 
 ![Vorschau](images/32-excel-io-vorschau.png)
 
-**Was sich ändert:** Nur die Kommentartabellen. Zuordnungen (Rack, Slot, Startpunkt), Modi und Geräteeinstellungen werden unverändert aus der Vorlage übernommen und nach dem Schreiben gegengeprüft. Deshalb muss die Vorlage vom Roboter stammen, in den die Datei geladen wird.
+**Hardware-Zuordnungen aus der Excel** (Option in der Vorschau, standardmäßig an): Fehlende E/A und Gruppen-E/A werden in der Datei angelegt.
+
+- **DI/DO** (Blätter *PlcToRob*, *RobToPlc*): Spalten *Rack*, *Slot*, *StartPt*. Aufeinanderfolgende Signale mit fortlaufendem Startpunkt werden zu einem Bereich zusammengefasst, z. B. `DI[4097–6656] → Rack 100, Slot 1, ab 1`. Zeilen ohne vollständige Angabe (z. B. Rack ohne Slot) werden übersprungen und gezählt.
+- **GI/GO** (Blätter *GI*, *GO*): je Zeile *Rack*, *Slot*, *Start Pt*, *Num Pts*. **Unbestätigt:** Die Ablage in der Datei (Startnummer, Anzahl Bits, physischer Typ DI/DO) ist aus dem Aufbau der DI/DO-Zuordnungen abgeleitet. Nach dem Laden unter **MENU → E/A → Gruppe → KONFIG** prüfen.
+- Zuordnungen der Vorlage, die sich mit einer neuen gleichen Typs überschneiden, werden ersetzt; alle anderen bleiben (UOP, SOP, Analog, Schweiß-E/A …). Die Vorschau listet neue und ersetzte Zuordnungen.
+- Die Zuordnungen müssen zur Hardware-Konfiguration des Roboters passen (z. B. PROFINET-Modulgröße auf Rack 100, Slot 1). Die wird hier nicht geändert.
+
+![Zuordnungen](images/35-excel-io-zuordnungen.png)
+
+**Was sonst gleich bleibt:** Modi, analoge Einstellungen und Gerätedaten werden unverändert aus der Vorlage übernommen und nach dem Schreiben gegengeprüft. Deshalb muss die Vorlage vom Roboter stammen, in den die Datei geladen wird.
 
 **Regeln für die Namen:** Umlaute werden umgeschrieben (`ä` → `ae`, `ß` → `ss`, `°` → `deg`, `µ` → `u`), andere Sonderzeichen werden zu `?`. Mehr als 24 Zeichen werden gekürzt (FANUC speichert 16 + 8 Zeichen).
 

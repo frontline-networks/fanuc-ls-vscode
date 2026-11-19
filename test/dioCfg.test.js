@@ -170,3 +170,45 @@ test('VARS-004/032 vermeiden: Zuordnungsprüfung, Testdatei, Vergleich (#Ladefeh
 	assert.match(md, /\| NAME_NAME \| Textfeld \| 63\/16 \| 20 \| 3 \|/);
 	assert.match(md, /NAME_NAME: 3 hier, 0 in Roboter/);
 });
+
+test('Zuordnungen aus der Excel: Bereiche, GI/GO, Zusammenführen (#fehlende E/A)', () => {
+	const di = [
+		['DI', 'Signal Name', 'Description', 'Rack', 'Slot', 'Byte', 'Bit', 'StartPt'],
+		['1', 'Alt', '', '89', '', '0', '0', ''],
+		['41', 'A', '', '100', '1', '0', '0', '1'],
+		['42', 'B', '', '100', '1', '0', '1', '2'],
+		['43', '', '', '100', '1', '0', '2', '3'],
+		['44', 'Sprung', '', '100', '1', '0', '3', '10'],
+		['45', 'Anderer Slot', '', '100', '2', '0', '0', '11']
+	];
+	const r = D.readAssignmentRows(di, 'PlcToRob');
+	assert.deepStrictEqual(r.assignments.map(D.assignmentLabel), [
+		'DI[41–43] → Rack 100, Slot 1, DI ab 1',
+		'DI[44–44] → Rack 100, Slot 1, DI ab 10',
+		'DI[45–45] → Rack 100, Slot 2, DI ab 11'
+	]);
+	assert.strictEqual(r.notes[0].incomplete, 1, 'Zeile mit Rack ohne Slot wird gezählt und übersprungen');
+
+	const gi = [['GI', 'Rack', 'Slot', 'Start Pt', 'Num Pts', 'Signal name'], ['201', '100', '1', '153', '16', 'Prg'], ['202', '', '', '', '', '']];
+	const g = D.readAssignmentRows(gi, 'GI');
+	assert.deepStrictEqual(g.assignments, [{ type: 18, start: 201, count: 16, rack: 100, slot: 1, phyType: 1, phyStart: 153 }]);
+	assert.deepStrictEqual(D.readAssignmentRows([['GO', 'Rack', 'Slot']], 'GO').notes[0].skipped, 'Spalten Rack, Slot, Start Pt, Num Pts nicht gefunden');
+
+	// Zusammenführen: überlappende DI-Zuordnung der Vorlage (DI 1–40) wird nur ersetzt, wenn sie sich überschneidet
+	const tpl = D.DioCfg.parse(TEMPLATE).assignments();
+	const m = D.mergeAssignments(tpl, [...r.assignments, ...g.assignments, { type: 1, start: 30, count: 5, rack: 0, slot: 2, phyType: 1, phyStart: 1 }]);
+	assert.deepStrictEqual(m.removed.map(D.assignmentLabel), ['DI[1–40] → Rack 0, Slot 1, DI ab 1']);
+	assert.deepStrictEqual(m.result.map((a) => `${a.type}:${a.start}`), ['1:30', '1:41', '1:44', '1:45', '2:1', '18:201']);
+	assert.deepStrictEqual(D.mergeAssignments(tpl, tpl), { result: tpl, added: [], removed: [] });
+
+	// in die Datei schreiben und zurücklesen
+	const items = [{ type: 1, no: 41, text: 'A', source: 'x' }, { type: 18, no: 201, text: 'Prg', source: 'x' }];
+	const b = D.buildDioCfg(TEMPLATE, items, { assignments: [...r.assignments, ...g.assignments] });
+	assert.strictEqual(b.asgAdded.length, 4);
+	assert.strictEqual(b.unassigned.length, 0, 'DI[41] ist jetzt zugeordnet');
+	assert.deepStrictEqual(D.DioCfg.parse(b.output).assignments(), b.assignmentsAfter);
+	assert.strictEqual(D.DioCfg.parse(b.output).records.get('ASG_LOG_PT').value.length, 6);
+
+	// Werte, die nicht in die Feldbreite passen (Rack 1 Byte)
+	assert.throws(() => D.buildDioCfg(TEMPLATE, [], { assignments: [{ type: 1, start: 300, count: 1, rack: 300, slot: 1, phyType: 1, phyStart: 1 }] }), /rack = 300 passt nicht in ASG_RACK_NO/);
+});

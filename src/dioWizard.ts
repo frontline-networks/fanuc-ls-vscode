@@ -10,7 +10,7 @@ import { ControllerConfig, devicesOf, getControllers } from './config';
 import { FanucApi } from './commands';
 import * as ftp from './ftp';
 import { readWorkbook } from './excelReader';
-import { BuildResult, DioCfg, MAX_COMMENT, PORT_NAMES, PORT_TYPES, SourceReport, buildDioCfg, compareDioCfg, dioReport, portLabel, readSignalWorkbook } from './dioCfg';
+import { AssignmentReport, BuildResult, DioCfg, MAX_COMMENT, PORT_NAMES, PORT_TYPES, SourceReport, assignmentLabel, buildDioCfg, compareDioCfg, dioReport, portLabel, readAssignmentWorkbook, readSignalWorkbook } from './dioCfg';
 import { IoStore } from './io';
 import { normalizeIoType } from './ioCore';
 import { ftpErrorText } from './welder';
@@ -50,6 +50,8 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 	const w = new Wizard('Excel → E/A-Konfiguration');
 	let excel: string | undefined = context.workspaceState.get<string>('fanucLs.ioExcel.last');
 	let report: SourceReport | undefined;
+	let asgReport: AssignmentReport | undefined;
+	let withAssignments = true;
 	let commentColumn = 'Signal Name';
 	let types: number[] = [];
 	let template: Template | undefined;
@@ -98,7 +100,9 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 			}
 			w.busy(`${path.basename(excel)} wird gelesen …`);
 			try {
-				report = readSignalWorkbook(readWorkbook(await fs.readFile(excel)), commentColumn);
+				const wb = readWorkbook(await fs.readFile(excel));
+				report = readSignalWorkbook(wb, commentColumn);
+				asgReport = readAssignmentWorkbook(wb);
 			} catch (err) {
 				error = `${esc(path.basename(excel))} konnte nicht gelesen werden: ${esc(err instanceof Error ? err.message : String(err))}`;
 				continue;
@@ -125,6 +129,14 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 					error,
 					content:
 						`<table><tr><th>Blatt</th><th>Typ</th><th>Zeilen</th><th>mit Signalname</th><th></th></tr>${rows}</table>` +
+						(asgReport && asgReport.assignments.length
+							? '<h2>Hardware-Zuordnungen in der Excel</h2><table><tr><th>Blatt</th><th>Typ</th><th>Signale</th><th>Bereiche</th><th>ohne vollständige Angabe</th></tr>' +
+								asgReport.notes
+									.filter((n) => n.ranges !== undefined)
+									.map((n) => `<tr><td>${esc(n.source)}</td><td>${esc(n.type)}</td><td>${n.rows}</td><td>${n.ranges}</td><td>${n.incomplete ? n.incomplete + ' (übersprungen)' : ''}</td></tr>`)
+									.join('') +
+								'</table>'
+							: '') +
 						(sourceTypes.length
 							? '<h2>Signaltypen übernehmen</h2>' +
 								sourceTypes
@@ -244,11 +256,12 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 		const items = report!.items;
 		let result: BuildResult;
 		try {
+			const asg = withAssignments && !onlyExisting ? asgReport?.assignments.filter((a) => types.includes(a.type)) : undefined;
 			if (onlyAssigned === undefined) {
-				// Standard: nur zugeordnete Signale, sobald die Vorlage Signale der Excel nicht kennt
-				onlyAssigned = buildDioCfg(template!.buf, items, { replace, types }).unassigned.length > 0;
+				// Standard: nur zugeordnete Signale, sobald die Signale weder in der Vorlage noch in der Excel zugeordnet sind
+				onlyAssigned = buildDioCfg(template!.buf, items, { replace, types, assignments: asg }).unassigned.length > 0;
 			}
-			result = buildDioCfg(template!.buf, items, { replace, types, onlyAssigned, onlyExisting });
+			result = buildDioCfg(template!.buf, items, { replace, types, onlyAssigned, onlyExisting, assignments: asg });
 		} catch (err) {
 			error = esc(err instanceof Error ? err.message : String(err));
 			step = 3;
@@ -283,6 +296,7 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 							.slice(0, 3)
 							.map((i) => portLabel(i.type, i.no))
 							.join(', ')}. Zugeordnet sind in der Vorlage: ${unassignedTypes.map((t) => `${PORT_NAMES[t]} ${asgText(t)}`).join('; ')}.<br>` +
+							(withAssignments && asgReport?.assignments.length ? 'Für diese Signale enthält auch die Excel keine vollständige Zuordnung. ' : '') +
 							'<b>Stammt die Vorlage wirklich vom Zielroboter?</b> Eine <code>DIOCFGSV.IO</code> von einem anderen Roboter oder Softwarestand führt beim Laden zu Alarmen wie <b>VARS-004 / VARS-032</b> („Unknown variable name“) und würde dessen E/A-Zuordnungen überschreiben. Am sichersten: Vorlage direkt vom Zielroboter holen.'
 					)
 				: '';
@@ -291,7 +305,7 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 				page({
 					progress: [4, TOTAL],
 					title: 'Vorschau – bitte prüfen',
-					intro: `Vorlage: <b>${esc(template!.label)}</b> · ${cfg.assignments().length} Zuordnungen bleiben unverändert.`,
+					intro: `Vorlage: <b>${esc(template!.label)}</b> · ${cfg.assignments().length} Zuordnungen in der Vorlage.`,
 					error,
 					content:
 						mismatch +
@@ -302,10 +316,25 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 							: '') +
 						radioCard('mode', 'merge', 'Zusammenführen (empfohlen)', 'Kommentare aus der Excel ersetzen vorhandene; Signale ohne Namen in der Excel behalten ihren bisherigen Kommentar.', !replace) +
 						radioCard('mode', 'replace', 'Ersetzen', 'Alle bisherigen Kommentare der gewählten Typen werden gelöscht, nur die Excel zählt.', replace) +
+						(asgReport?.assignments.length
+							? checkCard('opt', 'asg', 'Hardware-Zuordnungen aus der Excel übernehmen', 'Legt fehlende E/A-Bereiche und GI/GO an (Rack, Slot, Startpunkt aus der Excel). Überschneidende Zuordnungen gleichen Typs in der Vorlage werden ersetzt, alle anderen bleiben.', withAssignments)
+							: '') +
 						checkCard('opt', 'assigned', 'Nur Signale übernehmen, die in der Vorlage zugeordnet sind', 'Kommentare für Signale ohne Hardware-Zuordnung in der Vorlage werden weggelassen.', !!onlyAssigned) +
 						checkCard('opt', 'existing', 'Testdatei: nur vorhandene Kommentare ändern', 'Es kommen keine Einträge hinzu und keine fallen weg; die Felder behalten die Länge der Vorlage. Hilft beim Eingrenzen von Ladefehlern (VARS-032).', onlyExisting) +
 						(result.skipped ? message('info', `${result.skipped} Signalname(n) werden wegen dieser Optionen nicht übernommen.`) : '') +
 						button('Vorschau aktualisieren', 'refresh') +
+						(result.asgAdded.length || result.asgRemoved.length
+							? `<h2>Zuordnungen</h2><p>${result.assignmentsAfter.length} Zuordnungen nach der Änderung (vorher ${cfg.assignments().length}).</p><table><tr><th></th><th>Zuordnung</th></tr>` +
+								[
+									...result.asgRemoved.map((a) => `<tr><td>ersetzt</td><td><s>${esc(assignmentLabel(a))}</s></td></tr>`),
+									...result.asgAdded.slice(0, 25).map((a) => `<tr><td>neu</td><td class="new">${esc(assignmentLabel(a))}</td></tr>`)
+								].join('') +
+								(result.asgAdded.length > 25 ? `<tr><td></td><td>… und ${result.asgAdded.length - 25} weitere</td></tr>` : '') +
+								'</table>' +
+								(result.asgAdded.some((a) => a.type === PORT_TYPES.GI || a.type === PORT_TYPES.GO)
+									? message('warn', 'GI/GO-Zuordnungen: Die Ablage in der Datei (Startnummer, Anzahl Bits, physischer Typ DI/DO) ist aus dem Aufbau der DI/DO-Zuordnungen abgeleitet und am Roboter noch nicht bestätigt. Nach dem Laden unter MENU → E/A → Gruppe → KONFIG prüfen.')
+									: '')
+							: '') +
 						`<h2>Änderungen</h2><table><tr><th>Typ</th><th>neu</th><th>geändert</th><th>entfernt</th><th>gesamt</th></tr>${perTypeRows}</table>` +
 						(result.truncated.length
 							? message('warn', `${result.truncated.length} Signalname(n) länger als ${MAX_COMMENT} Zeichen werden gekürzt: ${result.truncated.slice(0, 8).map((t) => `${portLabel(t.type, t.no)} „${esc(t.text)}“`).join(', ')}${result.truncated.length > 8 ? ' …' : ''}`)
@@ -324,6 +353,9 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 			replace = str(r.values.mode) === 'replace';
 			onlyAssigned = list(r.values.opt).includes('assigned');
 			onlyExisting = list(r.values.opt).includes('existing');
+			if (asgReport?.assignments.length) {
+				withAssignments = list(r.values.opt).includes('asg');
+			}
 			toIoList = list(r.values.iolist).length > 0;
 			if (r.act === 'back') {
 				step = 3;

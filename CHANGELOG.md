@@ -1,5 +1,16 @@
 # Änderungen
 
+## 0.9.0
+
+### Neu
+
+- **Hardware-Zuordnungen aus der Signal-Excel** im Assistenten *Excel → IO-Datei*: fehlende DI/DO-Bereiche (Rack, Slot, StartPt; aufeinanderfolgende Signale werden zusammengefasst) und GI/GO (Rack, Slot, Start Pt, Num Pts) werden in der `DIOCFGSV.IO` angelegt. Überschneidende Zuordnungen gleichen Typs werden ersetzt, alle anderen bleiben. Vorschau mit neuen und ersetzten Zuordnungen, Kontrolle nach dem Schreiben. *Die Ablage der GI/GO-Zuordnungen ist am Roboter noch nicht bestätigt.*
+- Der Prüfbericht zeigt die Zuordnungen je Typ mit Rack und Slot.
+
+### Bekannt
+
+- VARS-004/VARS-032 beim Laden sind noch nicht geklärt (siehe Wiki *Ein und Ausgänge*, Abschnitt Ladefehler).
+
 ## 0.8.1
 
 Rückmeldung aus dem ersten Test am Roboter: Beim Laden der erzeugten `DIOCFGSV.IO` kamen VARS-004/VARS-032 („Unknown variable name“). Ursache war sehr wahrscheinlich eine Vorlage, die nicht vom Zielroboter stammt: Keines der Excel-Signale (DI/DO ab 4193, Rack 89) war in ihr zugeordnet (dort nur DI/DO 1–144, Rack 0).

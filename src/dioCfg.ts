@@ -168,6 +168,26 @@ export class DioCfg {
 		}));
 	}
 
+	/** Zuordnungen neu schreiben (sieben ASG_*-Felder). Prüft, ob die Werte in die Feldbreiten passen. */
+	setAssignments(list: Assignment[]): void {
+		const cols: [string, keyof Assignment][] = [
+			['ASG_LOG_PT', 'type'], ['ASG_LOG_PN', 'start'], ['ASG_N_PTS', 'count'], ['ASG_RACK_NO', 'rack'],
+			['ASG_SLOT_NO', 'slot'], ['ASG_PHY_PT', 'phyType'], ['ASG_PHY_PN', 'phyStart']
+		];
+		for (const [name, field] of cols) {
+			const rec = this.records.get(name);
+			if (!rec || rec.elemSize === undefined) {
+				throw new Error(`DIOCFGSV.IO ohne Zuordnungsfeld ${name}.`);
+			}
+			const max = 256 ** rec.elemSize - 1;
+			const bad = list.find((a) => !Number.isInteger(a[field]) || a[field] < 0 || a[field] > max);
+			if (bad) {
+				throw new Error(`${portLabel(bad.type, bad.start)}: ${String(field)} = ${bad[field]} passt nicht in ${name} (0–${max}).`);
+			}
+			rec.value = list.map((a) => a[field]);
+		}
+	}
+
 	encode(): Buffer {
 		const parts: Buffer[] = [this.header];
 		for (const r of this.records.values()) {
@@ -302,6 +322,8 @@ export interface BuildOptions {
 	onlyAssigned?: boolean;
 	/** Nur Kommentare ändern, die es in der Vorlage schon gibt: Feldlängen bleiben gleich (Testdatei). */
 	onlyExisting?: boolean;
+	/** Zuordnungen aus der Excel übernehmen (ersetzt überlappende Zuordnungen gleichen Typs) */
+	assignments?: Assignment[];
 }
 
 export interface Change {
@@ -324,6 +346,10 @@ export interface BuildResult {
 	unassigned: SourceItem[];
 	/** wegen onlyAssigned bzw. onlyExisting nicht übernommen */
 	skipped: number;
+	/** Zuordnungen im Ergebnis und Änderungen gegenüber der Vorlage */
+	assignmentsAfter: Assignment[];
+	asgAdded: Assignment[];
+	asgRemoved: Assignment[];
 }
 
 /** Liegt das Signal in einem Zuordnungsbereich der Vorlage? Typen ohne jede Zuordnung gelten als unbekannt (undefined). */
@@ -338,7 +364,12 @@ export function isAssigned(assignments: Assignment[], type: number, no: number):
 export function buildDioCfg(template: Buffer, items: SourceItem[], opts: BuildOptions = {}): BuildResult {
 	const cfg = DioCfg.parse(template);
 	const old = cfg.comments();
-	const assignments = cfg.assignments();
+	const before = cfg.assignments();
+	const merged = opts.assignments?.length ? mergeAssignments(before, opts.assignments) : { result: before, added: [], removed: [] };
+	if (merged.added.length || merged.removed.length) {
+		cfg.setAssignments(merged.result);
+	}
+	const assignments = merged.result;
 	const byType = opts.types ? items.filter((i) => opts.types!.includes(i.type)) : items;
 	const typed = byType.filter((i) => cleanComment(i.text));
 	const unassigned = typed.filter((i) => isAssigned(assignments, i.type, i.no) === false);
@@ -383,11 +414,11 @@ export function buildDioCfg(template: Buffer, items: SourceItem[], opts: BuildOp
 	if (got.size !== ordered.size || [...ordered].some(([k, v]) => got.get(k) !== v)) {
 		throw new Error('Kontrolle fehlgeschlagen: Kommentare stimmen nach dem Schreiben nicht überein.');
 	}
-	if (JSON.stringify(check.assignments()) !== JSON.stringify(cfg.assignments())) {
-		throw new Error('Kontrolle fehlgeschlagen: Zuordnungen wurden verändert.');
+	if (JSON.stringify(check.assignments()) !== JSON.stringify(assignments)) {
+		throw new Error('Kontrolle fehlgeschlagen: Zuordnungen stimmen nach dem Schreiben nicht überein.');
 	}
 	for (const [name, rec] of cfg.records) {
-		if (!name.startsWith('NAME_') && JSON.stringify(check.records.get(name)?.value) !== JSON.stringify(rec.value)) {
+		if (!name.startsWith('NAME_') && !name.startsWith('ASG_') && JSON.stringify(check.records.get(name)?.value) !== JSON.stringify(rec.value)) {
 			throw new Error(`Kontrolle fehlgeschlagen: ${name} wurde verändert.`);
 		}
 	}
@@ -404,7 +435,10 @@ export function buildDioCfg(template: Buffer, items: SourceItem[], opts: BuildOp
 		const t = unkey(k)[0];
 		perType.set(t, (perType.get(t) ?? 0) + 1);
 	}
-	return { output, comments: ordered, added, changed, removed, truncated, perType, unassigned, skipped };
+	return {
+		output, comments: ordered, added, changed, removed, truncated, perType, unassigned, skipped,
+		assignmentsAfter: assignments, asgAdded: merged.added, asgRemoved: merged.removed
+	};
 }
 
 export function portLabel(type: number, no: number): string {
@@ -529,4 +563,125 @@ export function dioReport(name: string, cfg: DioCfg, otherName?: string, other?:
 		}
 	}
 	return lines.join('\n') + '\n';
+}
+
+// --- Zuordnungen (Hardware) aus der Excel ---------------------------------------------------
+
+/** Physischer Signaltyp hinter einem logischen: Gruppen-E/A liegen auf digitalen Ein-/Ausgängen. */
+export function physicalType(type: number): number {
+	if (type === PORT_TYPES.GI) {
+		return PORT_TYPES.DI;
+	}
+	if (type === PORT_TYPES.GO) {
+		return PORT_TYPES.DO;
+	}
+	return type;
+}
+
+const GROUP_TYPES = [PORT_TYPES.GI, PORT_TYPES.GO];
+
+export interface AssignmentReport {
+	assignments: Assignment[];
+	notes: { source: string; type?: string; ranges?: number; rows?: number; incomplete?: number; skipped?: string }[];
+}
+
+const intOf = (v: string | undefined): number | undefined => {
+	const s = String(v ?? '').trim();
+	if (!/^\d+(\.0+)?$/.test(s)) {
+		return undefined;
+	}
+	return Math.trunc(Number(s));
+};
+
+/**
+ * Zuordnungen aus einer Signaltabelle lesen. Digitale Signale (DI, DO, …): Spalten Rack, Slot,
+ * StartPt; aufeinanderfolgende Signale mit fortlaufendem Startpunkt werden zu Bereichen
+ * zusammengefasst. Gruppen (GI, GO): je Zeile Rack, Slot, Start Pt, Num Pts.
+ * Zeilen ohne vollständige Angaben werden übersprungen (gezählt).
+ */
+export function readAssignmentRows(rows: Sheet, source: string): AssignmentReport {
+	const report: AssignmentReport = { assignments: [], notes: [] };
+	const header = (rows[0] ?? []).map((h) => String(h ?? '').trim().toLowerCase().replace(/[ _]/g, ''));
+	const ptype = String(rows[0]?.[0] ?? '').trim().toUpperCase();
+	if (!(ptype in PORT_TYPES)) {
+		return report;
+	}
+	const type = PORT_TYPES[ptype];
+	const col = (...names: string[]) => header.findIndex((h, i) => i > 0 && names.includes(h));
+	const ci = { rack: col('rack'), slot: col('slot'), start: col('startpt', 'startpoint', 'start'), num: col('numpts', 'numpoints', 'anzahl') };
+	if (ci.rack < 0 || ci.slot < 0 || ci.start < 0 || (GROUP_TYPES.includes(type) && ci.num < 0)) {
+		report.notes.push({ source, type: ptype, skipped: 'Spalten Rack, Slot, Start Pt' + (GROUP_TYPES.includes(type) ? ', Num Pts' : '') + ' nicht gefunden' });
+		return report;
+	}
+	let incomplete = 0;
+	const points: { no: number; rack: number; slot: number; start: number; num: number }[] = [];
+	for (const row of rows.slice(1)) {
+		const no = intOf(row[0]);
+		if (no === undefined) {
+			continue;
+		}
+		const p = { no, rack: intOf(row[ci.rack]), slot: intOf(row[ci.slot]), start: intOf(row[ci.start]), num: ci.num >= 0 ? intOf(row[ci.num]) : 1 };
+		const anyHw = [row[ci.rack], row[ci.slot], row[ci.start]].some((v) => String(v ?? '').trim());
+		if (p.rack === undefined || p.slot === undefined || p.start === undefined || p.num === undefined || p.start < 1 || p.num < 1) {
+			if (anyHw) {
+				incomplete++;
+			}
+			continue;
+		}
+		points.push(p as { no: number; rack: number; slot: number; start: number; num: number });
+	}
+	if (GROUP_TYPES.includes(type)) {
+		for (const p of points) {
+			report.assignments.push({ type, start: p.no, count: p.num, rack: p.rack, slot: p.slot, phyType: physicalType(type), phyStart: p.start });
+		}
+	} else {
+		points.sort((a, b) => a.no - b.no);
+		for (const p of points) {
+			const last = report.assignments[report.assignments.length - 1];
+			if (last && last.rack === p.rack && last.slot === p.slot && p.no === last.start + last.count && p.start === last.phyStart + last.count) {
+				last.count++;
+			} else {
+				report.assignments.push({ type, start: p.no, count: 1, rack: p.rack, slot: p.slot, phyType: physicalType(type), phyStart: p.start });
+			}
+		}
+	}
+	report.notes.push({ source, type: ptype, ranges: report.assignments.length, rows: points.length, incomplete });
+	return report;
+}
+
+export function readAssignmentWorkbook(wb: Workbook, sheets?: string[]): AssignmentReport {
+	const out: AssignmentReport = { assignments: [], notes: [] };
+	const names = sheets ?? (XLS_SHEETS.some((s) => wb.has(s)) ? XLS_SHEETS : [...wb.keys()]);
+	for (const name of names) {
+		const sheet = wb.get(name);
+		if (sheet) {
+			const r = readAssignmentRows(sheet, name);
+			out.assignments.push(...r.assignments);
+			out.notes.push(...r.notes);
+		}
+	}
+	return out;
+}
+
+const overlaps = (a: Assignment, b: Assignment) => a.type === b.type && a.start < b.start + b.count && b.start < a.start + a.count;
+const sameAsg = (a: Assignment, b: Assignment) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * Neue Zuordnungen einarbeiten: vorhandene Zuordnungen gleichen Typs, die sich mit einer neuen
+ * überschneiden, werden ersetzt; alles andere bleibt. Ergebnis sortiert nach Typ und Nummer
+ * (wie in den Dateien der Steuerung).
+ */
+export function mergeAssignments(existing: Assignment[], add: Assignment[]): { result: Assignment[]; added: Assignment[]; removed: Assignment[] } {
+	const removed = existing.filter((e) => add.some((a) => overlaps(e, a)) && !add.some((a) => sameAsg(a, e)));
+	const kept = existing.filter((e) => !add.some((a) => overlaps(e, a)));
+	const unchanged = existing.filter((e) => add.some((a) => sameAsg(a, e)));
+	const added = add.filter((a) => !existing.some((e) => sameAsg(a, e)));
+	const result = [...kept, ...unchanged, ...added].sort((a, b) => a.type - b.type || a.start - b.start);
+	return { result, added, removed };
+}
+
+export function assignmentLabel(a: Assignment): string {
+	const end = GROUP_TYPES.includes(a.type) ? `${a.start}` : `${a.start}–${a.start + a.count - 1}`;
+	const phys = GROUP_TYPES.includes(a.type) ? `${PORT_NAMES[a.phyType] ?? a.phyType} ab ${a.phyStart}, ${a.count} Bit` : `${PORT_NAMES[a.phyType] ?? a.phyType} ab ${a.phyStart}`;
+	return `${PORT_NAMES[a.type] ?? a.type}[${end}] → Rack ${a.rack}, Slot ${a.slot}, ${phys}`;
 }

@@ -30,6 +30,34 @@ Vom Controller exportierte Programme enthalten manchmal den Signalzustand zum Ze
 
 Der **Trichter** in der Ansicht E/A filtert nach Nummer oder Kommentar, z. B. `Greifer` oder `DO[12`. Passende Typen werden aufgeklappt; der gefüllte Trichter hebt den Filter auf.
 
+## Signal-Excel in die E/A-Konfiguration übernehmen
+
+Die Signalnamen aus der Signal-Excel (z. B. **Fanuc IO-Mapping.xls** mit den Blättern *PlcToRob*, *RobToPlc*, *GI*, *GO*) lassen sich direkt in die E/A-Konfiguration des Roboters schreiben, also in die Datei `DIOCFGSV.IO`. Excel muss dafür nicht installiert sein; gelesen werden `.xls` (Excel 97–2003) und `.xlsx`.
+
+**Aufruf:** Kachel **Excel → IO-Datei** auf der Schweißer-Startseite (Bereich *Häufig*), in der Ansicht E/A über `…` oder mit **FANUC: Signal-Excel in E/A-Konfiguration (DIOCFGSV.IO) umwandeln**.
+
+1. **Excel wählen.** Die zuletzt verwendete Datei wird vorgeschlagen.
+2. **Prüfen, was übernommen wird.** Je Blatt stehen Signaltyp, Zeilen und die Anzahl der Signalnamen. Signaltypen lassen sich abwählen. Gelesen werden Blätter, deren erste Kopfzelle der Signaltyp ist (DI, DO, GI, GO, SI, SO, UI, UO, AI, AO, WI, WO …); der Kommentar kommt aus der Spalte **Signal Name** (anpassbar). Blätter mit Flags (`F`) werden übersprungen, weil Flag-Kommentare nicht in `DIOCFGSV.IO` stehen.
+3. **Vorlage wählen:** die aktuelle `DIOCFGSV.IO` **des Zielroboters**, entweder direkt vom Roboter (`md:DIOCFGSV.IO`; das Original wird dabei unter `fanuc/Sicherungen/<Roboter>/E-A-Konfiguration/` gesichert) oder aus einem Backup.
+4. **Vorschau:** *Zusammenführen* (Standard: Namen aus der Excel ersetzen vorhandene Kommentare, Signale ohne Namen behalten ihren Kommentar) oder *Ersetzen* (alle Kommentare der gewählten Typen neu). Die Tabelle zeigt je Typ neue, geänderte und entfernte Kommentare und Beispiele; zu lange Namen werden aufgelistet. Optional werden die Namen auch in die E/A-Liste dieser Arbeitsumgebung übernommen, dann zeigen Hover und Vervollständigung sie sofort.
+5. **Speichern** und laden: Die Abschlussseite beschreibt, wie die Datei auf den Roboter kommt, und kann sie direkt auf einen Wechselspeicher des Roboters kopieren (z. B. `UD1:`).
+
+![Auswahl](images/31-excel-io-auswahl.png)
+
+![Vorschau](images/32-excel-io-vorschau.png)
+
+**Was sich ändert:** Nur die Kommentartabellen. Zuordnungen (Rack, Slot, Startpunkt), Modi und Geräteeinstellungen werden unverändert aus der Vorlage übernommen und nach dem Schreiben gegengeprüft. Deshalb muss die Vorlage vom Roboter stammen, in den die Datei geladen wird.
+
+**Regeln für die Namen:** Umlaute werden umgeschrieben (`ä` → `ae`, `ß` → `ss`, `°` → `deg`, `µ` → `u`), andere Sonderzeichen werden zu `?`. Mehr als 24 Zeichen werden gekürzt (FANUC speichert 16 + 8 Zeichen).
+
+**Laden am Roboter:** vorher vollständig sichern, Datei auf USB-Stick (oder per Assistent nach `UD1:`), Controlled Start, **MENU → FILE**, Gerät wählen, `DIOCFGSV.IO` → **LOAD**, Kaltstart, Kommentare unter **MENU → E/A** prüfen.
+
+> Die Dateierzeugung ist byte-genau mit dem ursprünglichen Python-Konverter abgeglichen. **Das Laden an einem echten Roboter ist noch nicht erprobt** – bitte zuerst an einer Testzelle oder in ROBOGUIDE ausprobieren.
+
+![Fertig](images/33-excel-io-fertig.png)
+
+**Umgekehrt:** Die Kommentare einer vorhandenen `DIOCFGSV.IO` lassen sich in die E/A-Liste der Extension übernehmen: beim Import vom Controller `md:DIOCFGSV.IO` wählen oder über den CSV-Import eine `.IO`-Datei öffnen.
+
 ## E/A-Kommentare auf den Roboter schreiben
 
 Eine geänderte E/A-Liste lässt sich nicht einfach hochladen: `IOSTATE.DG` ist eine Diagnose-Ausgabe der Steuerung (nur lesbar), die eigentliche E/A-Konfiguration (`DIOCFGSV.IO`) ist binär und nur beim Kaltstart ladbar. Der dokumentierte Weg führt über das KAREL-Built-in `SET_PORT_CMT`:

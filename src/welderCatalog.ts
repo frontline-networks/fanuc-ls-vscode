@@ -36,7 +36,8 @@ export const SECTIONS: Section[] = [
 			{ command: 'fanucLs.welder.speed', icon: '🔥', label: 'Geschwindigkeit', hint: 'Geschwindigkeit der Schweißnähte ändern (fester Wert oder Prozent)' },
 			{ command: 'fanucLs.welder.mirror', icon: '🪞', label: 'Spiegeln', hint: 'Programm spiegeln, z. B. für das linke/rechte Bauteil' },
 			{ command: 'fanucLs.welder.check', icon: '✅', label: 'Prüfen', hint: 'Programm prüfen und Fehler verständlich anzeigen' },
-			{ command: 'fanucLs.welder.backup', icon: '💾', label: 'Sicherung', hint: 'Alle Dateien eines Roboters auf den PC kopieren' }
+			{ command: 'fanucLs.welder.backup', icon: '💾', label: 'Sicherung', hint: 'Alle Dateien eines Roboters auf den PC kopieren' },
+			{ command: 'fanucLs.io.excelToDiocfg', icon: '📊', label: 'Excel → IO-Datei', hint: 'Signalnamen aus der Signal-Excel (Fanuc IO-Mapping) in die E/A-Konfiguration DIOCFGSV.IO übernehmen' }
 		]
 	},
 	{

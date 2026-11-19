@@ -15,7 +15,7 @@ Für Anwender ohne Programmiererfahrung hat die Extension einen eigenen Seitenre
 
 | Bereich | Kacheln |
 |---|---|
-| Häufig | Programm holen, Auf Roboter laden, Geschwindigkeit, Spiegeln, Prüfen, Sicherung (Assistenten) |
+| Häufig | Programm holen, Auf Roboter laden, Geschwindigkeit, Spiegeln, Prüfen, Sicherung, Excel → IO-Datei (Assistenten) |
 | Programm | Neues Programm, Syntax prüfen, Zeilen nummerieren, LINE_COUNT, Hochladen, Mit Roboter vergleichen, Gruppe spiegeln |
 | Sprungmarken | Einfügen, Alle neu nummerieren, Kommentar ändern, Nummer ändern |
 | Positionen & Achsen | Position anlegen, Gruppe hinzufügen/entfernen, Zusatzachse hinzufügen/entfernen |

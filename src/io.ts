@@ -6,6 +6,7 @@ import { ControllerConfig, getControllers } from './config';
 import { ControllerNode } from './controllerTree';
 import * as ftp from './ftp';
 import { IO_COMMENT_MAX, KAREL_PROGRAM_NAME, buildIoCommentProgram } from './ioKarel';
+import { ioEntriesFromDioCfg } from './dioCfg';
 import {
 	IO_TYPES,
 	IO_TYPE_NAMES,
@@ -17,6 +18,7 @@ import {
 	formatRanges,
 	ioKey,
 	mergeRanges,
+	normalizeIoType,
 	parseIoCsv,
 	parseIoListing,
 	parseRanges,
@@ -47,6 +49,21 @@ export class IoStore implements vscode.Disposable {
 	private fromPrograms = new Map<string, Known>();
 	private readonly emitter = new vscode.EventEmitter<void>();
 	readonly onDidChange = this.emitter.event;
+
+	/** E/A-Liste ohne Rückfrage im Workspace speichern (.fanuc/io/<Controller>.json). */
+	async saveImported(controller: string | undefined, source: string, entries: IoEntry[]): Promise<string | undefined> {
+		const folder = vscode.workspace.workspaceFolders?.[0];
+		if (!folder || entries.length === 0) {
+			return undefined;
+		}
+		const dir = path.join(folder.uri.fsPath, IO_DIR);
+		await fs.mkdir(dir, { recursive: true });
+		const file = path.join(dir, `${sanitize(controller ?? 'allgemein')}.json`);
+		const data: IoListFile = { version: 1, controller, source, imported: new Date().toISOString(), entries };
+		await fs.writeFile(file, JSON.stringify(data, null, 2) + '\n', 'utf8');
+		await this.reload();
+		return file;
+	}
 
 	async reload(): Promise<void> {
 		const lists: { file: string; data: IoListFile }[] = [];
@@ -402,14 +419,15 @@ export function registerIoFeatures(context: vscode.ExtensionContext, store: IoSt
 		let files: string[] = [];
 		try {
 			files = (await ftp.list(controller, deps.secrets, 'md:'))
-				.filter((e) => !e.isDirectory && /\.(dg|va|txt|csv|ls|dt)$/i.test(e.name))
+				.filter((e) => !e.isDirectory && /\.(dg|va|txt|csv|ls|dt|io)$/i.test(e.name))
 				.map((e) => e.name);
 		} catch {
 			/* Liste nicht lesbar - Pfad kann trotzdem eingegeben werden */
 		}
-		const preferred = ['IOSTATE.DG'];
+		const preferred = ['IOSTATE.DG', 'DIOCFGSV.IO'];
 		const items = [
-			...preferred.map((f) => ({ label: `md:${f}`, description: 'E/A-Status mit Kommentaren (empfohlen)' })),
+			{ label: 'md:IOSTATE.DG', description: 'E/A-Status mit Kommentaren (empfohlen)' },
+			{ label: 'md:DIOCFGSV.IO', description: 'E/A-Konfiguration (Kommentare)' },
 			...files.filter((f) => !preferred.includes(f.toUpperCase())).map((f) => ({ label: `md:${f}`, description: '' })),
 			{ label: '$(edit) Anderer Pfad …', description: '' }
 		];
@@ -430,7 +448,7 @@ export function registerIoFeatures(context: vscode.ExtensionContext, store: IoSt
 			await fs.mkdir(path.dirname(tmp), { recursive: true });
 			await ftp.downloadToFile(controller, deps.secrets, remotePath, tmp);
 		});
-		const entries = parseIoListing(await fs.readFile(tmp, 'latin1'));
+		const entries = /\.io$/i.test(remotePath) ? ioEntries(await fs.readFile(tmp)) : parseIoListing(await fs.readFile(tmp, 'latin1'));
 		await saveList(root, controller.name, remotePath, entries, tmp);
 	});
 
@@ -441,7 +459,7 @@ export function registerIoFeatures(context: vscode.ExtensionContext, store: IoSt
 		}
 		const picked = await vscode.window.showOpenDialog({
 			canSelectMany: false,
-			filters: { 'CSV/Text': ['csv', 'txt', 'tsv'], Alle: ['*'] },
+			filters: { 'CSV/Text, E/A-Konfiguration': ['csv', 'txt', 'tsv', 'io', 'IO'], Alle: ['*'] },
 			openLabel: 'E/A-Liste importieren'
 		});
 		if (!picked?.[0]) {
@@ -455,8 +473,8 @@ export function registerIoFeatures(context: vscode.ExtensionContext, store: IoSt
 			return;
 		}
 		const text = await fs.readFile(picked[0].fsPath, 'latin1');
-		const csv = parseIoCsv(text);
-		const entries = csv.length ? csv : parseIoListing(text);
+		const csv = /\.io$/i.test(picked[0].fsPath) ? [] : parseIoCsv(text);
+		const entries = /\.io$/i.test(picked[0].fsPath) ? ioEntries(await fs.readFile(picked[0].fsPath)) : csv.length ? csv : parseIoListing(text);
 		await saveList(root, target.value || undefined, path.basename(picked[0].fsPath), entries, picked[0].fsPath);
 	});
 
@@ -581,6 +599,17 @@ export function registerIoFeatures(context: vscode.ExtensionContext, store: IoSt
 		await fs.writeFile(file, JSON.stringify(data, null, 2) + '\n', 'utf8');
 		await store.reload();
 		vscode.window.showInformationMessage(`E/A-Liste gespeichert: ${vscode.workspace.asRelativePath(file)}`);
+	}
+}
+
+/** Kommentare aus einer binären DIOCFGSV.IO; bei Fehlern leere Liste (die Meldung kommt aus saveList). */
+function ioEntries(buf: Buffer): IoEntry[] {
+	try {
+		return ioEntriesFromDioCfg(buf)
+			.map((e) => ({ type: normalizeIoType(e.type)!, index: e.index, comment: e.comment }))
+			.filter((e) => e.type);
+	} catch {
+		return [];
 	}
 }
 

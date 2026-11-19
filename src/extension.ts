@@ -16,6 +16,7 @@ import { registerWelder } from './welder';
 import { startStatusChecks } from './onlineStatus';
 import { registerLocationStatus } from './location';
 import { registerDocs } from './docs';
+import { registerIoExcelWizard } from './dioWizard';
 
 const SELECTOR: vscode.DocumentSelector = { language: 'fanuc-ls' };
 
@@ -168,6 +169,10 @@ export function activate(context: vscode.ExtensionContext): void {
 	// --- FANUC-Dokumentation (lokaler Ordner, auch für Copilot) -----------------
 
 	registerDocs(context);
+
+	// --- Signal-Excel → DIOCFGSV.IO (Assistent) ----------------------------------
+
+	registerIoExcelWizard(context, api, ioStore);
 
 	// --- Online-Status der Roboter ----------------------------------------------
 

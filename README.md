@@ -34,6 +34,10 @@ Die Pipeline `.github/workflows/build.yml` baut bei jedem Push auf `main`, bei P
 
 Im Ordner `examples/` liegt ein vollständiges Beispielprogramm zum Testen.
 
+### Signal-Excel → E/A-Konfiguration
+
+Ein Assistent übernimmt die Signalnamen aus der Signal-Excel (`.xls`/`.xlsx`, z. B. „Fanuc IO-Mapping“) in die `DIOCFGSV.IO` des Roboters, ohne installiertes Excel. Details im [Wiki](https://github.com/frontline-networks/fanuc-ls-vscode/wiki/Ein-und-Ausg%C3%A4nge).
+
 ### Eigene FANUC-Handbücher
 
 In `fanucLs.docs.folder` lässt sich ein Ordner mit FANUC-Handbüchern (PDF mit Text, Text, Markdown) festlegen. Die Extension durchsucht ihn lokal: Suche, Nachschlagen per Rechtsklick und als Werkzeug `#fanucDocs` für GitHub Copilot. Details im [Wiki](https://github.com/frontline-networks/fanuc-ls-vscode/wiki/FANUC-Doku).

@@ -555,6 +555,12 @@
         "title": "Doku neu einlesen",
         "category": "FANUC",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "fanucLs.io.excelToDiocfg",
+        "title": "Signal-Excel in E/A-Konfiguration (DIOCFGSV.IO) umwandeln",
+        "category": "FANUC",
+        "icon": "$(table)"
       }
     ],
     "menus": {
@@ -643,6 +649,11 @@
           "command": "fanucLs.io.writeToRobot",
           "when": "view == fanucLs.io",
           "group": "1_io@3"
+        },
+        {
+          "command": "fanucLs.io.excelToDiocfg",
+          "when": "view == fanucLs.io",
+          "group": "1_io@4"
         }
       ],
       "view/item/context": [
@@ -1262,7 +1273,7 @@
     "test": "npm run compile && node --test test/*.test.js"
   },
   "dependencies": {
-    "basic-ftp": "^6.2.1",
+    "basic-ftp": "^6.2.6",
     "pdfjs-dist": "4.10.38"
   },
   "devDependencies": {

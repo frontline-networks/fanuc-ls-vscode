@@ -313,7 +313,7 @@ async function pickProgram(w: Wizard, progress: [number, number], question: stri
 }
 
 /** Roboter auswählen (bei Bedarf zuerst einrichten). */
-async function pickRobot(w: Wizard, api: FanucApi, progress: [number, number], question: string): Promise<Pick<ControllerConfig>> {
+export async function pickRobot(w: Wizard, api: FanucApi, progress: [number, number], question: string): Promise<Pick<ControllerConfig>> {
 	for (;;) {
 		const robots = getControllers();
 		const r = await w.step(
@@ -409,7 +409,7 @@ async function finish(w: Wizard, title: string, content: string, next: ('speed' 
 	}
 }
 
-function ftpErrorText(err: unknown): string {
+export function ftpErrorText(err: unknown): string {
 	const msg = err instanceof Error ? err.message : String(err);
 	return `Der Roboter antwortet nicht oder hat die Anfrage abgelehnt.<br><small>${esc(msg)}</small><br><br>Bitte prüfen:<br>• Ist der PC mit dem Roboternetz verbunden (Netzwerkkabel)?<br>• Stimmt die IP-Adresse?<br>• Ist die Steuerung eingeschaltet?`;
 }

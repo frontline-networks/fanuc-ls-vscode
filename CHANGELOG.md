@@ -5,7 +5,13 @@
 ### Neu
 
 - **Eigene FANUC-Dokumentation einbinden** (#13): Ordner mit Handbüchern (PDF mit Textebene, Text, Markdown) in `fanucLs.docs.folder` bzw. per *FANUC: Doku-Ordner festlegen*. Durchsuchen mit Trefferliste (Datei, Seite, Auszug), Nachschlagen des Befehls unter dem Cursor per Rechtsklick, Originaldatei öffnen. Einmal eingelesen, danach nur geänderte Dateien; gescannte PDFs ohne Text werden gemeldet.
+- **Signal-Excel → DIOCFGSV.IO** (Assistent in der Seitenleiste, Kachel *Excel → IO-Datei*): übernimmt die Signalnamen aus der Signal-Excel (z. B. „Fanuc IO-Mapping“, `.xls` oder `.xlsx`, ohne installiertes Excel) in die E/A-Konfiguration des Roboters. Vorlage direkt vom Roboter (Original wird gesichert) oder aus einem Backup, Zusammenführen oder Ersetzen, Vorschau der Änderungen, Kontrolle nach dem Schreiben, optional Kopie auf `UD1:`/`MC:` und Übernahme in die E/A-Liste. Ergebnis byte-genau wie der bisherige Python-Konverter. *Laden am echten Roboter noch nicht erprobt.*
+- **E/A-Liste aus `DIOCFGSV.IO`** importieren (vom Controller oder als Datei).
 - **Werkzeug für GitHub Copilot** `#fanucDocs` (`fanuc_docs_search`): Copilot sucht bei FANUC-Fragen in den eigenen Handbüchern und nennt Datei und Seite. Der Copilot-Skill weist darauf hin.
+
+### Sicherheit
+
+- basic-ftp 6.2.6 behebt [GHSA-5pm8-86m8-9m6r](https://github.com/advisories/GHSA-5pm8-86m8-9m6r) und [GHSA-r4jh-29pc-gfqr](https://github.com/advisories/GHSA-r4jh-29pc-gfqr) (DoS bei präparierten Verzeichnislisten bzw. Zeilenumbrüchen in Passwörtern).
 
 ## 0.7.0
 

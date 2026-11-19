@@ -28,6 +28,7 @@ Alle Befehle sind über die Befehlspalette (`F1` oder `Strg+Umschalt+P`) mit dem
 | FANUC: In FANUC-Doku nachschlagen | Befehl unter dem Cursor nachschlagen (auch per Rechtsklick) |
 | FANUC: Doku-Ordner festlegen | Ordner mit Handbüchern wählen |
 | FANUC: Doku neu einlesen | Handbücher neu einlesen |
+| FANUC: Signal-Excel in E/A-Konfiguration (DIOCFGSV.IO) umwandeln | Assistent: Signalnamen aus der Excel in die `DIOCFGSV.IO` übernehmen, siehe [[Ein und Ausgänge]] |
 | FANUC: E/A-Kommentare auf Roboter übertragen (KAREL) | KAREL-Programm erzeugen, das die Kommentare am Roboter setzt |
 
 Weitere Befehle stehen nur im Kontextmenü der Controller-Ansicht zur Verfügung, siehe [[Controller und FTP]].

@@ -1,6 +1,8 @@
 # Änderungen
 
-## Unveröffentlicht
+## 0.8.0
+
+Eigene FANUC-Handbücher durchsuchen (auch für Copilot) und Signal-Excel in die E/A-Konfiguration übernehmen.
 
 ### Neu
 

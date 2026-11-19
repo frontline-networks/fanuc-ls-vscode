@@ -2,7 +2,7 @@
   "name": "fanuc-ls",
   "displayName": "FANUC TP (LS)",
   "description": "Syntaxhighlighting, Snippets, Syntaxprüfung und FTP-Dateitransfer für FANUC TP-Programme (.ls) und KAREL (.kl)",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "publisher": "frontlinenetworks",
   "license": "MIT",
   "repository": {
@@ -561,6 +561,12 @@
         "title": "Signal-Excel in E/A-Konfiguration (DIOCFGSV.IO) umwandeln",
         "category": "FANUC",
         "icon": "$(table)"
+      },
+      {
+        "command": "fanucLs.io.inspectDiocfg",
+        "title": "DIOCFGSV.IO prüfen / vergleichen",
+        "category": "FANUC",
+        "icon": "$(checklist)"
       }
     ],
     "menus": {
@@ -654,6 +660,11 @@
           "command": "fanucLs.io.excelToDiocfg",
           "when": "view == fanucLs.io",
           "group": "1_io@4"
+        },
+        {
+          "command": "fanucLs.io.inspectDiocfg",
+          "when": "view == fanucLs.io",
+          "group": "1_io@5"
         }
       ],
       "view/item/context": [

@@ -10,7 +10,7 @@ import { ControllerConfig, devicesOf, getControllers } from './config';
 import { FanucApi } from './commands';
 import * as ftp from './ftp';
 import { readWorkbook } from './excelReader';
-import { BuildResult, DioCfg, MAX_COMMENT, PORT_NAMES, PORT_TYPES, SourceReport, buildDioCfg, portLabel, readSignalWorkbook } from './dioCfg';
+import { BuildResult, DioCfg, MAX_COMMENT, PORT_NAMES, PORT_TYPES, SourceReport, buildDioCfg, compareDioCfg, dioReport, portLabel, readSignalWorkbook } from './dioCfg';
 import { IoStore } from './io';
 import { normalizeIoType } from './ioCore';
 import { ftpErrorText } from './welder';
@@ -29,6 +29,13 @@ interface Template {
 
 export function registerIoExcelWizard(context: vscode.ExtensionContext, api: FanucApi, store: IoStore): void {
 	context.subscriptions.push(
+		vscode.commands.registerCommand('fanucLs.io.inspectDiocfg', async () => {
+			try {
+				await inspect(api);
+			} catch (err) {
+				vscode.window.showErrorMessage(`DIOCFGSV.IO prüfen: ${err instanceof Error ? err.message : String(err)}`);
+			}
+		}),
 		vscode.commands.registerCommand('fanucLs.io.excelToDiocfg', async () => {
 			try {
 				await run(context, api, store);
@@ -47,6 +54,9 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 	let types: number[] = [];
 	let template: Template | undefined;
 	let replace = false;
+	let onlyAssigned: boolean | undefined;
+	let onlyExisting = false;
+	let compareNote = '';
 	let toIoList = !!vscode.workspace.workspaceFolders?.length;
 	let step = 1;
 	let error: string | undefined;
@@ -234,7 +244,11 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 		const items = report!.items;
 		let result: BuildResult;
 		try {
-			result = buildDioCfg(template!.buf, items, { replace, types });
+			if (onlyAssigned === undefined) {
+				// Standard: nur zugeordnete Signale, sobald die Vorlage Signale der Excel nicht kennt
+				onlyAssigned = buildDioCfg(template!.buf, items, { replace, types }).unassigned.length > 0;
+			}
+			result = buildDioCfg(template!.buf, items, { replace, types, onlyAssigned, onlyExisting });
 		} catch (err) {
 			error = esc(err instanceof Error ? err.message : String(err));
 			step = 3;
@@ -254,6 +268,25 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 				...result.added.slice(0, 15).map((c) => `<tr><td>${label(c)}</td><td><i>neu</i></td><td class="new">${esc(c.after)}</td></tr>`),
 				...result.removed.slice(0, 10).map((c) => `<tr><td>${label(c)}</td><td>${esc(c.before)}</td><td><i>entfernt</i></td></tr>`)
 			].join('');
+			const asgText = (t: number) =>
+				cfg
+					.assignments()
+					.filter((a) => a.type === t)
+					.map((a) => `${a.start}–${a.start + a.count - 1}`)
+					.join(', ') || 'keine';
+			const unassignedTypes = [...new Set(result.unassigned.map((i) => i.type))];
+			const named = report!.items.filter((i) => types.includes(i.type) && i.text.trim()).length;
+			const mismatch = result.unassigned.length
+				? message(
+						result.unassigned.length >= named / 2 ? 'error' : 'warn',
+						`<b>${result.unassigned.length} von ${named} Signalen sind in der Vorlage keiner Hardware zugeordnet</b>, z. B. ${result.unassigned
+							.slice(0, 3)
+							.map((i) => portLabel(i.type, i.no))
+							.join(', ')}. Zugeordnet sind in der Vorlage: ${unassignedTypes.map((t) => `${PORT_NAMES[t]} ${asgText(t)}`).join('; ')}.<br>` +
+							'<b>Stammt die Vorlage wirklich vom Zielroboter?</b> Eine <code>DIOCFGSV.IO</code> von einem anderen Roboter oder Softwarestand führt beim Laden zu Alarmen wie <b>VARS-004 / VARS-032</b> („Unknown variable name“) und würde dessen E/A-Zuordnungen überschreiben. Am sichersten: Vorlage direkt vom Zielroboter holen.'
+					)
+				: '';
+			const robots = getControllers();
 			const r = await w.step(
 				page({
 					progress: [4, TOTAL],
@@ -261,8 +294,17 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 					intro: `Vorlage: <b>${esc(template!.label)}</b> · ${cfg.assignments().length} Zuordnungen bleiben unverändert.`,
 					error,
 					content:
+						mismatch +
+						compareNote +
+						(template!.file && robots.length
+							? '<h2>Vorlage mit dem Zielroboter abgleichen</h2>' +
+								robots.map((c, i) => card('🔍', `Mit ${c.name} vergleichen`, 'Softwarestand, Variablen und Zuordnungen mit md:DIOCFGSV.IO des Roboters vergleichen', 'compare', String(i), 'compact')).join('')
+							: '') +
 						radioCard('mode', 'merge', 'Zusammenführen (empfohlen)', 'Kommentare aus der Excel ersetzen vorhandene; Signale ohne Namen in der Excel behalten ihren bisherigen Kommentar.', !replace) +
 						radioCard('mode', 'replace', 'Ersetzen', 'Alle bisherigen Kommentare der gewählten Typen werden gelöscht, nur die Excel zählt.', replace) +
+						checkCard('opt', 'assigned', 'Nur Signale übernehmen, die in der Vorlage zugeordnet sind', 'Kommentare für Signale ohne Hardware-Zuordnung in der Vorlage werden weggelassen.', !!onlyAssigned) +
+						checkCard('opt', 'existing', 'Testdatei: nur vorhandene Kommentare ändern', 'Es kommen keine Einträge hinzu und keine fallen weg; die Felder behalten die Länge der Vorlage. Hilft beim Eingrenzen von Ladefehlern (VARS-032).', onlyExisting) +
+						(result.skipped ? message('info', `${result.skipped} Signalname(n) werden wegen dieser Optionen nicht übernommen.`) : '') +
 						button('Vorschau aktualisieren', 'refresh') +
 						`<h2>Änderungen</h2><table><tr><th>Typ</th><th>neu</th><th>geändert</th><th>entfernt</th><th>gesamt</th></tr>${perTypeRows}</table>` +
 						(result.truncated.length
@@ -280,12 +322,33 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 				return w.close();
 			}
 			replace = str(r.values.mode) === 'replace';
+			onlyAssigned = list(r.values.opt).includes('assigned');
+			onlyExisting = list(r.values.opt).includes('existing');
 			toIoList = list(r.values.iolist).length > 0;
 			if (r.act === 'back') {
 				step = 3;
 				continue;
 			}
 			if (r.act === 'refresh') {
+				continue;
+			}
+			if (r.act === 'compare') {
+				const c = robots[Number(r.arg)];
+				w.busy(`DIOCFGSV.IO von ${c.name} wird zum Vergleich geholt …`);
+				try {
+					const robotCfg = DioCfg.parse(await fetchRobotDio(api, c));
+					const cmp = compareDioCfg(DioCfg.parse(template!.buf), robotCfg);
+					compareNote =
+						cmp.errors.length || cmp.warnings.length
+							? message(
+									cmp.errors.length ? 'error' : 'warn',
+									`<b>Vergleich mit ${esc(c.name)}:</b><br>${[...cmp.errors, ...cmp.warnings].map(esc).join('<br>')}` +
+										(cmp.errors.length ? '<br><b>Diese Vorlage passt nicht zum Roboter.</b> Bitte die Vorlage von diesem Roboter holen (Zurück).' : '')
+								)
+							: message('ok', `Vorlage passt zu ${esc(c.name)}: Softwarestand, Variablen und Zuordnungen stimmen überein.`);
+				} catch (err) {
+					compareNote = message('error', ftpErrorText(err));
+				}
 				continue;
 			}
 			// --- 5. speichern ---
@@ -323,6 +386,22 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 	}
 }
 
+/** Hilfe bei Ladefehlern am Roboter. */
+const TROUBLESHOOTING =
+	'<details><summary><b>Alarme beim Laden (VARS-004, VARS-032, „Unknown variable name“)?</b></summary><ul>' +
+	'<li><b>Vorlage vom falschen Roboter oder Softwarestand:</b> Die Datei kennt Variablen, die der Roboter nicht hat, oder umgekehrt. Vorlage direkt vom Zielroboter holen (Schritt 3) bzw. mit <i>Mit … vergleichen</i> prüfen.</li>' +
+	'<li><b>Nicht im Controlled Start geladen:</b> Im normalen Betrieb lassen sich die Felder der E/A-Konfiguration nicht in der Länge ändern.</li>' +
+	'<li><b>Eingrenzen:</b> eine Testdatei mit der Option <i>nur vorhandene Kommentare ändern</i> erzeugen. Lädt sie fehlerfrei, liegt es an der Anzahl der Einträge.</li>' +
+	'<li>Den genauen Alarmtext mit <b>DETAIL</b> in der Alarmhistorie notieren (enthält meist den Variablennamen) und den Bericht <i>FANUC: DIOCFGSV.IO prüfen / vergleichen</i> erstellen.</li>' +
+	'</ul></details>';
+
+async function fetchRobotDio(api: FanucApi, c: ControllerConfig): Promise<Buffer> {
+	const tmp = path.join(os.tmpdir(), 'fanuc-ls', 'io', `${c.name.replace(/[^\w.-]+/g, '_')}_DIOCFGSV_check.IO`);
+	await fs.mkdir(path.dirname(tmp), { recursive: true });
+	await ftp.downloadToFile(c, api.secrets, 'md:DIOCFGSV.IO', tmp);
+	return fs.readFile(tmp);
+}
+
 async function done(w: Wizard, api: FanucApi, file: string, result: BuildResult, template: Template, ioListNote: string): Promise<void> {
 	const robot = template.controller;
 	w.onCommand = (cmd) => {
@@ -350,6 +429,7 @@ async function done(w: Wizard, api: FanucApi, file: string, result: BuildResult,
 					'<li>Kaltstart, danach unter <b>MENU → E/A</b> die Kommentare prüfen.</li>' +
 					'</ol>' +
 					message('warn', 'Die Datei enthält auch die E/A-Zuordnungen der Vorlage. Nur in den Roboter laden, von dem die Vorlage stammt. Am echten Roboter ist dieser Ablauf noch nicht erprobt – zuerst an einer Testzelle oder in ROBOGUIDE ausprobieren.') +
+					TROUBLESHOOTING +
 					(devices.length
 						? `<h2>Auf ${esc(robot!.name)} übertragen (optional)</h2>` + devices.map((d) => card('⬆️', `Nach ${d} kopieren`, `${esc(d)}DIOCFGSV.IO – danach im Controlled Start von dort laden`, 'upload', d, 'compact')).join('')
 						: ''),
@@ -359,12 +439,56 @@ async function done(w: Wizard, api: FanucApi, file: string, result: BuildResult,
 		if (r.act !== 'upload' || !robot || !r.arg) {
 			return w.close();
 		}
-		w.busy(`DIOCFGSV.IO wird nach ${r.arg} auf ${robot.name} kopiert …`);
+		w.busy(`DIOCFGSV.IO wird mit ${robot.name} abgeglichen …`);
 		try {
+			const cmp = compareDioCfg(DioCfg.parse(await fs.readFile(file)), DioCfg.parse(await fetchRobotDio(api, robot)));
+			if (cmp.errors.length) {
+				note = message('error', `<b>Nicht kopiert:</b> Die Datei passt nicht zur E/A-Konfiguration auf ${esc(robot.name)}.<br>${cmp.errors.map(esc).join('<br>')}`);
+				continue;
+			}
+			w.busy(`DIOCFGSV.IO wird nach ${r.arg} auf ${robot.name} kopiert …`);
 			await ftp.uploadFile(robot, api.secrets, file, ftp.joinRemote(r.arg, 'DIOCFGSV.IO'));
 			note = message('ok', `Auf ${esc(robot.name)} unter <code>${esc(r.arg)}DIOCFGSV.IO</code> abgelegt.`);
 		} catch (err) {
 			note = message('error', ftpErrorText(err));
 		}
 	}
+}
+
+/** Bericht über eine DIOCFGSV.IO, optional verglichen mit einer zweiten Datei oder der auf einem Roboter. */
+async function inspect(api: FanucApi): Promise<void> {
+	const pickSource = async (placeHolder: string, allowNone: boolean): Promise<{ name: string; buf: Buffer } | undefined | null> => {
+		const robots = getControllers();
+		const items = [
+			{ label: '$(file) Datei wählen …', value: 'file' },
+			...robots.map((c, i) => ({ label: `$(server-environment) ${c.name}`, description: 'md:DIOCFGSV.IO vom Roboter', value: String(i) })),
+			...(allowNone ? [{ label: '$(close) Nicht vergleichen', value: 'none' }] : [])
+		];
+		const picked = await vscode.window.showQuickPick(items, { placeHolder });
+		if (!picked) {
+			return undefined;
+		}
+		if (picked.value === 'none') {
+			return null;
+		}
+		if (picked.value === 'file') {
+			const f = await vscode.window.showOpenDialog({ canSelectMany: false, filters: { 'E/A-Konfiguration': ['io', 'IO'] } });
+			return f?.[0] ? { name: path.basename(f[0].fsPath), buf: await fs.readFile(f[0].fsPath) } : undefined;
+		}
+		const c = robots[Number(picked.value)];
+		const buf = await api.withProgress(`DIOCFGSV.IO von ${c.name}`, () => fetchRobotDio(api, c));
+		return { name: `${c.name} (md:DIOCFGSV.IO)`, buf };
+	};
+	const first = await pickSource('Welche DIOCFGSV.IO prüfen?', false);
+	if (!first) {
+		return;
+	}
+	const second = await pickSource('Vergleichen mit … (z. B. dem Zielroboter)', true);
+	if (second === undefined) {
+		return;
+	}
+	const md = dioReport(first.name, DioCfg.parse(first.buf), second?.name, second ? DioCfg.parse(second.buf) : undefined);
+	const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content: md });
+	await vscode.window.showTextDocument(doc, { preview: false });
+	await vscode.commands.executeCommand('markdown.showPreviewToSide', doc.uri);
 }

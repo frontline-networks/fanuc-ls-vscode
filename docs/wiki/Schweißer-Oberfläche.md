@@ -19,7 +19,7 @@ Für Anwender ohne Programmiererfahrung hat die Extension einen eigenen Seitenre
 | Programm | Neues Programm, Syntax prüfen, Zeilen nummerieren, LINE_COUNT, Hochladen, Mit Roboter vergleichen, Gruppe spiegeln |
 | Sprungmarken | Einfügen, Alle neu nummerieren, Kommentar ändern, Nummer ändern |
 | Positionen & Achsen | Position anlegen, Gruppe hinzufügen/entfernen, Zusatzachse hinzufügen/entfernen |
-| Ein-/Ausgänge | Vom Roboter importieren, Kommentare auf Roboter, CSV importieren/exportieren, Gültige Bereiche, Status ein/aus, Status entfernen, E/A suchen, E/A-Filter aufheben, Neu laden |
+| Ein-/Ausgänge | Vom Roboter importieren, IO-Datei prüfen, Kommentare auf Roboter, CSV importieren/exportieren, Gültige Bereiche, Status ein/aus, Status entfernen, E/A suchen, E/A-Filter aufheben, Neu laden |
 | Roboter & Dateien | Roboter einrichten/bearbeiten/entfernen, Passwort, Datei ansehen/herunterladen/hochladen/löschen, Gerät sichern, Roboterdatei vergleichen, Dateien filtern, Filter aufheben, Aktualisieren, FTP-Protokoll |
 | Klon | Klonen/aktualisieren, Änderungen anzeigen, Änderungsbericht, Änderungen übertragen |
 | FANUC-Doku | Doku durchsuchen, Nachschlagen, Doku-Ordner, Doku neu einlesen |

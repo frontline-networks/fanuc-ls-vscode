@@ -125,3 +125,48 @@ test('Ersetzen und Typauswahl', () => {
 	assert.deepStrictEqual(onlyDi.removed.map((x) => D.portLabel(x.type, x.no)), []);
 	assert.strictEqual(D.cleanComment('  Ölstand  '), 'Oelstand');
 });
+
+test('VARS-004/032 vermeiden: Zuordnungsprüfung, Testdatei, Vergleich (#Ladefehler)', () => {
+	const items = [
+		{ type: 1, no: 5, text: 'Zugeordnet', source: 't' },
+		{ type: 1, no: 4193, text: 'Nicht zugeordnet', source: 't' },
+		{ type: 18, no: 201, text: 'GI ohne Zuordnungsdaten', source: 't' },
+		{ type: 1, no: 1, text: 'Neuer Text', source: 't' }
+	];
+	const tplAsg = D.DioCfg.parse(TEMPLATE).assignments();
+	assert.strictEqual(D.isAssigned(tplAsg, 1, 40), true);
+	assert.strictEqual(D.isAssigned(tplAsg, 1, 41), false);
+	assert.strictEqual(D.isAssigned(tplAsg, 18, 201), undefined, 'Typ ohne Zuordnungen in der Vorlage: unbekannt');
+
+	const all = D.buildDioCfg(TEMPLATE, items);
+	assert.deepStrictEqual(all.unassigned.map((i) => D.portLabel(i.type, i.no)), ['DI[4193]']);
+	assert.ok(all.comments.has('1:4193'));
+
+	const assigned = D.buildDioCfg(TEMPLATE, items, { onlyAssigned: true });
+	assert.ok(!assigned.comments.has('1:4193'));
+	assert.ok(assigned.comments.has('18:201') && assigned.comments.has('1:5'));
+	assert.strictEqual(assigned.skipped, 1);
+
+	const test = D.buildDioCfg(TEMPLATE, items, { onlyExisting: true, replace: true });
+	assert.deepStrictEqual([...test.comments.keys()], ['11:1', '1:1', '2:12'], 'Feldlängen wie in der Vorlage');
+	assert.strictEqual(test.comments.get('1:1'), 'Neuer Text');
+	const back = D.DioCfg.parse(test.output);
+	for (const n of ['NAME_LOG_PT', 'NAME_LOG_PN', 'NAME_NAME', 'NAME_NAME2']) {
+		assert.strictEqual(back.records.get(n).value.length, 3, n);
+	}
+
+	// Vergleich mit dem Zielroboter
+	const tpl = D.DioCfg.parse(TEMPLATE);
+	assert.deepStrictEqual(D.compareDioCfg(D.DioCfg.parse(all.output), tpl), { errors: [], warnings: [] });
+	const other = Buffer.concat([HEADER, scalar('$$VERSION', 123), ints('ASG_LOG_PT', 1, [1]), ints('NAME_LOG_PT', 1, []), ints('NAME_LOG_PN', 2, []), strings('NAME_NAME', []), strings('NAME_NAME2', [])]);
+	const cmp = D.compareDioCfg(tpl, D.DioCfg.parse(other));
+	assert.match(cmp.errors.join('\n'), /Softwarestand.*940583.*123/);
+	assert.match(cmp.errors.join('\n'), /nicht kennt: ASG_LOG_PN/);
+	assert.match(cmp.warnings.join('\n'), /Zuordnungen weichen ab/);
+
+	const md = D.dioReport('Vorlage', tpl, 'Roboter', D.DioCfg.parse(other));
+	assert.match(md, /Softwarestand \(\$\$VERSION\): 940583/);
+	assert.match(md, /DI: 1–40 \(Rack 0, Slot 1\)/);
+	assert.match(md, /\| NAME_NAME \| Textfeld \| 63\/16 \| 20 \| 3 \|/);
+	assert.match(md, /NAME_NAME: 3 hier, 0 in Roboter/);
+});

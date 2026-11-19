@@ -80,6 +80,7 @@ export const SECTIONS: Section[] = [
 		title: 'Ein-/Ausgänge',
 		tiles: [
 			{ command: 'fanucLs.io.importFromController', icon: '📥', label: 'Vom Roboter importieren', hint: 'E/A-Kommentare vom Roboter übernehmen' },
+			{ command: 'fanucLs.io.inspectDiocfg', icon: '🩺', label: 'IO-Datei prüfen', hint: 'DIOCFGSV.IO prüfen und mit dem Roboter vergleichen (bei Ladefehlern VARS-004/VARS-032)' },
 			{ command: 'fanucLs.io.writeToRobot', icon: '✍️', label: 'Kommentare auf Roboter', hint: 'E/A-Kommentare aus der Liste auf den Roboter schreiben (über ein KAREL-Programm)' },
 			{ command: 'fanucLs.io.importCsv', icon: '📑', label: 'CSV importieren', hint: 'E/A-Liste aus einer CSV-Datei laden' },
 			{ command: 'fanucLs.io.exportCsv', icon: '📤', label: 'CSV exportieren', hint: 'E/A-Liste als CSV speichern (z. B. für Excel)' },

@@ -56,6 +56,21 @@ Die Signalnamen aus der Signal-Excel (z. B. **Fanuc IO-Mapping.xls** mit den Bl�
 
 ![Fertig](images/33-excel-io-fertig.png)
 
+### Ladefehler VARS-004 / VARS-032 („Unknown variable name“)
+
+Diese Alarme beim Laden bedeuten, dass die Datei nicht zur E/A-Konfiguration des Roboters passt. Häufigste Ursache: **Die Vorlage stammt nicht vom Zielroboter** (anderer Roboter oder anderer Softwarestand). Dann enthält die Datei Variablen oder Feldlängen, die der Roboter nicht kennt, und sie würde außerdem seine E/A-Zuordnungen überschreiben.
+
+Der Assistent hilft dabei:
+
+- **Zuordnungsprüfung:** Sind Signale aus der Excel in der Vorlage keiner Hardware zugeordnet (z. B. Excel `DI[4193…]` auf Rack 89, Vorlage nur `DI[1–144]` auf Rack 0), erscheint eine deutliche Warnung. Standardmäßig werden dann nur zugeordnete Signale übernommen.
+- **Mit dem Zielroboter vergleichen:** Bei einer Vorlage aus einer Sicherung lässt sie sich in der Vorschau mit `md:DIOCFGSV.IO` eines Roboters vergleichen (Softwarestand, Variablen, Datentypen, Zuordnungen). Vor dem Kopieren auf den Roboter wird automatisch verglichen; passt die Datei nicht, wird nicht kopiert.
+- **Testdatei:** Mit *nur vorhandene Kommentare ändern* behalten alle Felder die Länge der Vorlage. Lädt diese Datei fehlerfrei, die vollständige aber nicht, liegt es an der Anzahl der Einträge.
+- **FANUC: DIOCFGSV.IO prüfen / vergleichen** (Kachel *IO-Datei prüfen*): Bericht zu einer Datei – Softwarestand, Variablen mit Typ und Länge, Zuordnungen, Kommentare je Typ – und auf Wunsch der Vergleich mit einer zweiten Datei oder der auf einem Roboter.
+
+![Warnung bei unpassender Vorlage](images/34-excel-io-warnung.png)
+
+Checkliste: Vorlage direkt vom Zielroboter holen, im **Controlled Start** laden, bei weiteren Alarmen den Text mit **DETAIL** aus der Alarmhistorie notieren (enthält meist den Variablennamen) und den Prüfbericht beilegen.
+
 **Umgekehrt:** Die Kommentare einer vorhandenen `DIOCFGSV.IO` lassen sich in die E/A-Liste der Extension übernehmen: beim Import vom Controller `md:DIOCFGSV.IO` wählen oder über den CSV-Import eine `.IO`-Datei öffnen.
 
 ## E/A-Kommentare auf den Roboter schreiben

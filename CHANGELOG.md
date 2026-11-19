@@ -1,5 +1,17 @@
 # Änderungen
 
+## 0.8.1
+
+Rückmeldung aus dem ersten Test am Roboter: Beim Laden der erzeugten `DIOCFGSV.IO` kamen VARS-004/VARS-032 („Unknown variable name“). Ursache war sehr wahrscheinlich eine Vorlage, die nicht vom Zielroboter stammt: Keines der Excel-Signale (DI/DO ab 4193, Rack 89) war in ihr zugeordnet (dort nur DI/DO 1–144, Rack 0).
+
+### Neu
+
+- **Zuordnungsprüfung im Assistenten:** deutliche Warnung, wenn Signale der Excel in der Vorlage keiner Hardware zugeordnet sind; standardmäßig werden dann nur zugeordnete Signale übernommen.
+- **Vorlage mit dem Zielroboter vergleichen** (Softwarestand, Variablen, Datentypen, Zuordnungen). Vor dem Kopieren auf den Roboter wird automatisch verglichen und bei Abweichung nicht kopiert.
+- **Testdatei** „nur vorhandene Kommentare ändern“ (Feldlängen wie in der Vorlage) zum Eingrenzen von Ladefehlern.
+- **FANUC: DIOCFGSV.IO prüfen / vergleichen:** Bericht mit Softwarestand, Variablen, Zuordnungen und Kommentaren, optional Vergleich mit einer zweiten Datei oder dem Roboter.
+- Hilfe zu VARS-004/VARS-032 auf der Abschlussseite des Assistenten und im Wiki.
+
 ## 0.8.0
 
 Eigene FANUC-Handbücher durchsuchen (auch für Copilot) und Signal-Excel in die E/A-Konfiguration übernehmen.

@@ -295,6 +295,13 @@ export interface BuildOptions {
 	replace?: boolean;
 	/** nur diese Typen übernehmen (Typnummern); Standard: alle aus der Quelle */
 	types?: number[];
+	/**
+	 * Nur Signale übernehmen, die in der Vorlage einer Hardware zugeordnet sind (für Typen,
+	 * zu denen die Vorlage überhaupt Zuordnungen enthält).
+	 */
+	onlyAssigned?: boolean;
+	/** Nur Kommentare ändern, die es in der Vorlage schon gibt: Feldlängen bleiben gleich (Testdatei). */
+	onlyExisting?: boolean;
 }
 
 export interface Change {
@@ -313,14 +320,36 @@ export interface BuildResult {
 	truncated: { type: number; no: number; text: string }[];
 	/** Anzahl Kommentare je Typ im Ergebnis */
 	perType: Map<number, number>;
+	/** Signale mit Namen, die in der Vorlage keiner Hardware zugeordnet sind */
+	unassigned: SourceItem[];
+	/** wegen onlyAssigned bzw. onlyExisting nicht übernommen */
+	skipped: number;
+}
+
+/** Liegt das Signal in einem Zuordnungsbereich der Vorlage? Typen ohne jede Zuordnung gelten als unbekannt (undefined). */
+export function isAssigned(assignments: Assignment[], type: number, no: number): boolean | undefined {
+	const ofType = assignments.filter((a) => a.type === type);
+	if (ofType.length === 0) {
+		return undefined;
+	}
+	return ofType.some((a) => no >= a.start && no < a.start + a.count);
 }
 
 export function buildDioCfg(template: Buffer, items: SourceItem[], opts: BuildOptions = {}): BuildResult {
 	const cfg = DioCfg.parse(template);
 	const old = cfg.comments();
-	const use = opts.types ? items.filter((i) => opts.types!.includes(i.type)) : items;
-	const sourceTypes = new Set(use.map((i) => i.type));
-	const next = new Map<CommentKey, string>(opts.replace ? [...old].filter(([k]) => !sourceTypes.has(unkey(k)[0])) : old);
+	const assignments = cfg.assignments();
+	const byType = opts.types ? items.filter((i) => opts.types!.includes(i.type)) : items;
+	const typed = byType.filter((i) => cleanComment(i.text));
+	const unassigned = typed.filter((i) => isAssigned(assignments, i.type, i.no) === false);
+	const use = typed.filter(
+		(i) =>
+			!(opts.onlyAssigned && isAssigned(assignments, i.type, i.no) === false) &&
+			!(opts.onlyExisting && !old.has(key(i.type, i.no)))
+	);
+	const skipped = typed.length - use.length;
+	const sourceTypes = new Set(byType.map((i) => i.type));
+	const next = new Map<CommentKey, string>(opts.replace && !opts.onlyExisting ? [...old].filter(([k]) => !sourceTypes.has(unkey(k)[0])) : old);
 
 	const truncated: BuildResult['truncated'] = [];
 	for (const item of use) {
@@ -375,7 +404,7 @@ export function buildDioCfg(template: Buffer, items: SourceItem[], opts: BuildOp
 		const t = unkey(k)[0];
 		perType.set(t, (perType.get(t) ?? 0) + 1);
 	}
-	return { output, comments: ordered, added, changed, removed, truncated, perType };
+	return { output, comments: ordered, added, changed, removed, truncated, perType, unassigned, skipped };
 }
 
 export function portLabel(type: number, no: number): string {
@@ -390,4 +419,114 @@ export function ioEntriesFromDioCfg(buf: Buffer): { type: string; index: number;
 			return { type: PORT_NAMES[t], index, comment };
 		})
 		.filter((e) => e.type && !e.type.startsWith('WS'));
+}
+
+// --- Prüfen und Vergleichen (VARS-004/VARS-032 beim Laden vermeiden) -----------------------
+
+export interface VarInfo {
+	name: string;
+	kind: 'Skalar' | 'Zahlenfeld' | 'Textfeld';
+	t1: number;
+	t2: number;
+	elemSize?: number;
+	length?: number;
+	value?: number;
+}
+
+export function describeVars(cfg: DioCfg): VarInfo[] {
+	return [...cfg.records.values()].map((r) => ({
+		name: r.name,
+		kind: r.t1 === 0x00 ? 'Skalar' : r.t1 === 0x3f ? 'Textfeld' : 'Zahlenfeld',
+		t1: r.t1,
+		t2: r.t2,
+		elemSize: r.elemSize,
+		length: Array.isArray(r.value) ? r.value.length : undefined,
+		value: typeof r.value === 'number' ? r.value : undefined
+	}));
+}
+
+export interface Compatibility {
+	/** schwerwiegend: Datei passt nicht zur Steuerung (Ladefehler wahrscheinlich) */
+	errors: string[];
+	/** Hinweise: Zuordnungen weichen ab usw. */
+	warnings: string[];
+}
+
+/**
+ * Passt eine (erzeugte) Datei zur E/A-Konfiguration auf dem Zielroboter? Verglichen werden
+ * Version, Variablennamen und -typen sowie die Zuordnungen. Unterschiedliche Variablen führen
+ * beim Laden typischerweise zu "Unknown variable name"/VARS-Alarmen.
+ */
+export function compareDioCfg(file: DioCfg, robot: DioCfg): Compatibility {
+	const errors: string[] = [];
+	const warnings: string[] = [];
+	if (file.version !== robot.version) {
+		errors.push(`Unterschiedlicher Softwarestand ($$VERSION ${file.version ?? '?'} in der Datei, ${robot.version ?? '?'} auf dem Roboter).`);
+	}
+	const a = new Map(describeVars(file).map((v) => [v.name, v]));
+	const b = new Map(describeVars(robot).map((v) => [v.name, v]));
+	const onlyFile = [...a.keys()].filter((n) => !b.has(n));
+	const onlyRobot = [...b.keys()].filter((n) => !a.has(n));
+	if (onlyFile.length) {
+		errors.push(`Variablen, die der Roboter nicht kennt: ${onlyFile.join(', ')}.`);
+	}
+	if (onlyRobot.length) {
+		errors.push(`Variablen des Roboters, die in der Datei fehlen: ${onlyRobot.join(', ')}.`);
+	}
+	for (const [name, v] of a) {
+		const w = b.get(name);
+		if (w && (v.t1 !== w.t1 || v.t2 !== w.t2 || v.elemSize !== w.elemSize)) {
+			errors.push(`${name}: anderer Datentyp (Datei ${v.t1}/${v.t2}/${v.elemSize ?? '-'}, Roboter ${w.t1}/${w.t2}/${w.elemSize ?? '-'}).`);
+		}
+	}
+	const asg = (c: DioCfg) => JSON.stringify(c.assignments());
+	if (asg(file) !== asg(robot)) {
+		warnings.push(`Die E/A-Zuordnungen weichen ab (Datei ${file.assignments().length}, Roboter ${robot.assignments().length} Einträge). Beim Laden werden die Zuordnungen des Roboters durch die der Datei ersetzt.`);
+	}
+	return { errors, warnings };
+}
+
+/** Bericht über eine DIOCFGSV.IO (Markdown), optional mit Vergleich gegen eine zweite. */
+export function dioReport(name: string, cfg: DioCfg, otherName?: string, other?: DioCfg): string {
+	const lines: string[] = [`# DIOCFGSV.IO – ${name}`, '', `- Softwarestand ($$VERSION): ${cfg.version ?? '?'}`];
+	const comments = cfg.comments();
+	const perType = new Map<string, number>();
+	for (const k of comments.keys()) {
+		const t = PORT_NAMES[unkey(k)[0]] ?? String(unkey(k)[0]);
+		perType.set(t, (perType.get(t) ?? 0) + 1);
+	}
+	lines.push(`- Kommentare: ${comments.size} (${[...perType].map(([t, n]) => `${t} ${n}`).join(', ') || '–'})`);
+	const ranges = new Map<string, string[]>();
+	for (const a of cfg.assignments()) {
+		const t = PORT_NAMES[a.type] ?? String(a.type);
+		ranges.set(t, [...(ranges.get(t) ?? []), `${a.start}–${a.start + a.count - 1} (Rack ${a.rack}, Slot ${a.slot})`]);
+	}
+	lines.push(`- Zuordnungen: ${cfg.assignments().length}`, '');
+	for (const [t, r] of ranges) {
+		lines.push(`  - ${t}: ${r.join(', ')}`);
+	}
+	lines.push('', '## Variablen', '', '| Name | Art | Typ | Elementgröße | Länge/Wert |', '|---|---|---|---|---|');
+	for (const v of describeVars(cfg)) {
+		lines.push(`| ${v.name} | ${v.kind} | ${v.t1}/${v.t2} | ${v.elemSize ?? ''} | ${v.length ?? v.value ?? ''} |`);
+	}
+	if (other && otherName) {
+		const c = compareDioCfg(cfg, other);
+		lines.push('', `## Vergleich mit ${otherName}`, '');
+		if (!c.errors.length && !c.warnings.length) {
+			lines.push('Version, Variablen, Datentypen und Zuordnungen stimmen überein.');
+		}
+		c.errors.forEach((e) => lines.push(`- ⛔ ${e}`));
+		c.warnings.forEach((w) => lines.push(`- ⚠️ ${w}`));
+		const lenDiff = describeVars(cfg).filter((v) => {
+			const o = describeVars(other).find((x) => x.name === v.name);
+			return o && v.length !== o.length;
+		});
+		if (lenDiff.length) {
+			lines.push('', 'Unterschiedliche Feldlängen (Anzahl Einträge):', '');
+			for (const v of lenDiff) {
+				lines.push(`- ${v.name}: ${v.length} hier, ${describeVars(other).find((x) => x.name === v.name)?.length} in ${otherName}`);
+			}
+		}
+	}
+	return lines.join('\n') + '\n';
 }

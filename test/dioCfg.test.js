@@ -82,7 +82,7 @@ test('Signal-Excel lesen: Spalten, Typen, übersprungene Blätter', () => {
 	assert.strictEqual(notes.PlcToRob, 705);
 	assert.strictEqual(notes.RobToPlc, 2);
 	assert.strictEqual(notes.GI, 1, 'Spalte "Signal name" wird gefunden');
-	assert.match(String(notes.GO), /Flag-Kommentare/);
+	assert.strictEqual(notes.GO, 0, 'Blatt mit Typ F (Flags) wird gelesen');
 	assert.ok(r.items.every((i) => Number.isInteger(i.no)));
 });
 
@@ -237,4 +237,39 @@ test('VARS-032: Grenze von 65 535 Byte je Variable', () => {
 	const d2 = D.buildDioCfg(tpl2, [], { dropUnassigned: true });
 	assert.deepStrictEqual([...d2.comments.keys()], ['1:3']);
 	assert.deepStrictEqual(d2.removed.map((c) => D.portLabel(c.type, c.no)), ['DI[900]']);
+});
+
+test('Überlauftabellen NAME2_/NAME3_ und Flags (wie die Steuerung sie schreibt)', () => {
+	const asg = [ints('ASG_LOG_PT', 1, [1, 2]), ints('ASG_LOG_PN', 2, [1, 1]), ints('ASG_N_PTS', 2, [8, 8]), ints('ASG_RACK_NO', 1, [0, 0]),
+		ints('ASG_SLOT_NO', 1, [1, 1]), ints('ASG_PHY_PT', 1, [1, 2]), ints('ASG_PHY_PN', 2, [1, 1])];
+	const tpl = Buffer.concat([HEADER, scalar('$$VERSION', 940550), ...asg,
+		ints('NAME_LOG_PT', 1, [35, 1]), ints('NAME2_LOG_PT', 1, [2]), ints('NAME3_LOG_PT', 1, []),
+		ints('NAME_LOG_PN', 2, [1, 1]), ints('NAME2_LOG_PN', 2, [7]), ints('NAME3_LOG_PN', 2, []),
+		strings('NAME_NAME', ['Flag eins', 'Taster']), strings('NAME_NAME2', ['', '']),
+		strings('NAME2_NAME', ['Ein langer Ausgangstext!'], 24, 28), strings('NAME3_NAME', [], 24, 28),
+		scalar('MODE_X', 1)]);
+	const cfg = D.DioCfg.parse(tpl);
+	assert.deepStrictEqual(cfg.commentTables().map((t) => [t.prefix, t.entries, t.capacity]), [['NAME_', 2, 3276], ['NAME2_', 1, 2300], ['NAME3_', 0, 2300]]);
+	assert.deepStrictEqual([...cfg.comments()], [['35:1', 'Flag eins'], ['1:1', 'Taster'], ['2:7', 'Ein langer Ausgangstext!']]);
+	assert.ok(cfg.encode().equals(tpl), 'Lesen + Schreiben ändert nichts');
+	const before = [...cfg.comments()];
+	cfg.setComments(cfg.comments());
+	assert.deepStrictEqual(cfg.commentTables().map((t) => t.entries), [3, 0, 0], 'NAME_ wird zuerst gefüllt');
+	assert.deepStrictEqual([...D.DioCfg.parse(cfg.encode()).comments()], before);
+	assert.strictEqual(D.commentCapacity(cfg), 3276 + 2300 + 2300);
+
+	// 6000 Kommentare: NAME_ voll, dann NAME2_, Rest in NAME3_; Flag-Blatt wird übernommen
+	const many = Array.from({ length: 6000 }, (_, i) => ({ type: 2, no: 100 + i, text: 'Signal ' + i, source: 't' }));
+	const r = D.buildDioCfg(tpl, [...many, { type: 35, no: 2, text: 'Flag zwei', source: 'F' }]);
+	assert.deepStrictEqual(r.oversized, []);
+	const out = D.DioCfg.parse(r.output);
+	assert.deepStrictEqual(out.commentTables().map((t) => t.entries), [3276, 2300, 6004 - 3276 - 2300]);
+	assert.strictEqual(out.comments().get('35:2'), 'Flag zwei');
+	assert.strictEqual(out.comments().get('2:7'), 'Ein langer Ausgangstext!');
+	assert.strictEqual(out.records.get('NAME2_NAME').value[0], 'Signal 3273', 'NAME2_ folgt direkt auf NAME_');
+	assert.strictEqual(out.records.get('MODE_X').value, 1);
+
+	// Zu viele für alle Tabellen: die letzte läuft über und wird gemeldet
+	const tooMany = Array.from({ length: 8000 }, (_, i) => ({ type: 1, no: 100 + i, text: 'x', source: 't' }));
+	assert.deepStrictEqual(D.buildDioCfg(tpl, tooMany).oversized.map((i) => i.name), ['NAME3_NAME']);
 });

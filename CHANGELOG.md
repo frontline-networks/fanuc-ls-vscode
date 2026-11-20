@@ -1,5 +1,19 @@
 # Änderungen
 
+## 0.9.2
+
+Abgleich mit einer am Roboter konfigurierten `DIOCFGSV.IO` (über 6 000 Kommentare, GI/GO eingerichtet) klärt die eigentliche Ursache von VARS-032: Die Steuerung verteilt Kommentare auf mehrere Tabellen.
+
+### Behoben
+
+- **Überlauftabellen `NAME2_*` / `NAME3_*`:** Die Steuerung legt höchstens 3 276 Kommentare in `NAME_*` ab, danach je bis 2 300 in `NAME2_*` und `NAME3_*` (ein Textfeld mit 24 Zeichen). Die Extension las und schrieb bisher nur `NAME_*` – Kommentare aus den Überlauftabellen fehlten, und bei vielen Signalen wurde `NAME_*` zu groß (VARS-032). Jetzt werden alle Tabellen gelesen und die Kommentare wie von der Steuerung verteilt. Lesen und Schreiben der Beispieldatei ist byte-genau.
+- **Flag-Kommentare (`F`)** werden gelesen und aus der Excel übernommen.
+
+### Geändert
+
+- Die Platzanzeige im Assistenten zählt alle Kommentartabellen der Vorlage; fehlen die Überlauftabellen, weist der Assistent darauf hin. Der Prüfbericht zeigt die Belegung je Tabelle.
+- Die Ablage der GI/GO-Zuordnungen ist mit der Roboterdatei bestätigt; die Warnung entfällt.
+
 ## 0.9.1
 
 Die Alarmtexte aus dem Test am Roboter klären die Ladefehler: **VARS-032** „Variable size too big“ – eine Variable der `DIOCFGSV.IO` darf höchstens 65 535 Byte groß sein; **VARS-004** „memory not updated“ ist der Folgefehler.

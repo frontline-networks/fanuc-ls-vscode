@@ -30,6 +30,8 @@ export const XLS_SHEETS = ['PlcToRob', 'RobToPlc', 'GI', 'GO'];
 /** So viele Kommentare legt die Steuerung höchstens in NAME_ bzw. je Überlauftabelle NAME2_, NAME3_ … ab. */
 export const NAME_TABLE_MAX = 3276;
 export const OVERFLOW_TABLE_MAX = 2300;
+/** So viele Kommentartabellen (NAME_, NAME2_, NAME3_) legt die Extension höchstens an – wie in Dateien der Steuerung gesehen. */
+export const MAX_COMMENT_TABLES = 3;
 
 export interface CommentTable {
 	prefix: string;
@@ -173,6 +175,44 @@ export class DioCfg {
 			});
 		}
 		return out;
+	}
+
+	/**
+	 * Fehlende Überlauftabellen anlegen, bis `count` Kommentare Platz haben (höchstens bis NAME{maxTables}_).
+	 * Aufbau und Reihenfolge wie in einer Datei der Steuerung: NAMEk_LOG_PT hinter die anderen
+	 * *_LOG_PT, NAMEk_LOG_PN hinter die *_LOG_PN, NAMEk_NAME (24 Zeichen, 28 Byte) hinter die Textfelder.
+	 * Gibt die Präfixe der neuen Tabellen zurück.
+	 */
+	ensureCommentCapacity(count: number, maxTables = MAX_COMMENT_TABLES): string[] {
+		const created: string[] = [];
+		let tables = this.commentTables();
+		const pt = this.records.get('NAME_LOG_PT');
+		const pn = this.records.get('NAME_LOG_PN');
+		if (!pt || !pn) {
+			return created;
+		}
+		while (tables.reduce((n, t) => n + t.capacity, 0) < count && tables.length < maxTables) {
+			const prefix = `NAME${tables.length + 1}_`;
+			const lastOf = (re: RegExp) => [...this.records.keys()].filter((n) => re.test(n)).pop()!;
+			this.insertAfter(lastOf(/^NAME\d*_LOG_PT$/), { name: `${prefix}LOG_PT`, t1: pt.t1, t2: pt.t2, elemSize: pt.elemSize, value: [], raw: Buffer.alloc(0) });
+			this.insertAfter(lastOf(/^NAME\d*_LOG_PN$/), { name: `${prefix}LOG_PN`, t1: pn.t1, t2: pn.t2, elemSize: pn.elemSize, value: [], raw: Buffer.alloc(0) });
+			this.insertAfter(lastOf(/^NAME(_NAME2?|\d+_NAME)$/), {
+				name: `${prefix}NAME`, t1: TYPE_STRING, t2: MAX_COMMENT, elemSize: MAX_COMMENT + 4, value: [], raw: Buffer.alloc(0)
+			});
+			created.push(prefix);
+			tables = this.commentTables();
+		}
+		return created;
+	}
+
+	private insertAfter(after: string, rec: DioRecord): void {
+		const entries = [...this.records];
+		const i = entries.findIndex(([n]) => n === after);
+		entries.splice(i + 1, 0, [rec.name, rec]);
+		this.records.clear();
+		for (const [n, r] of entries) {
+			this.records.set(n, r);
+		}
 	}
 
 	comments(): Map<CommentKey, string> {
@@ -386,6 +426,8 @@ export interface BuildOptions {
 	assignments?: Assignment[];
 	/** vorhandene Kommentare der Vorlage für Signale ohne Zuordnung entfernen (schafft Platz) */
 	dropUnassigned?: boolean;
+	/** fehlende Überlauftabellen NAME2_/NAME3_ bei Bedarf anlegen (Standard: ja) */
+	createOverflow?: boolean;
 }
 
 export interface Change {
@@ -416,6 +458,8 @@ export interface BuildResult {
 	oversized: SizeIssue[];
 	/** höchstens so viele Kommentare passen in die Datei */
 	capacity: number;
+	/** neu angelegte Überlauftabellen (Präfixe, z. B. "NAME2_") */
+	createdTables: string[];
 }
 
 /** Liegt das Signal in einem Zuordnungsbereich der Vorlage? Typen ohne jede Zuordnung gelten als unbekannt (undefined). */
@@ -479,6 +523,7 @@ export function buildDioCfg(template: Buffer, items: SourceItem[], opts: BuildOp
 			return ta - tb || na - nb;
 		});
 	const ordered = new Map<CommentKey, string>([...existing, ...appended].map((k) => [k, next.get(k)!]));
+	const createdTables = opts.createOverflow === false || opts.onlyExisting ? [] : cfg.ensureCommentCapacity(ordered.size);
 	cfg.setComments(ordered);
 	const output = cfg.encode();
 
@@ -512,7 +557,7 @@ export function buildDioCfg(template: Buffer, items: SourceItem[], opts: BuildOp
 	return {
 		output, comments: ordered, added, changed, removed, truncated, perType, unassigned, skipped,
 		assignmentsAfter: assignments, asgAdded: merged.added, asgRemoved: merged.removed,
-		oversized: sizeIssues(check), capacity: commentCapacity(check)
+		oversized: sizeIssues(check), capacity: commentCapacity(check), createdTables
 	};
 }
 

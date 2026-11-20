@@ -1,5 +1,11 @@
 # Änderungen
 
+## 0.9.3
+
+### Neu
+
+- **Überlauftabellen werden automatisch angelegt:** Hat die Vorlage keine `NAME2_*`/`NAME3_*` und passen die Kommentare nicht mehr in `NAME_*` (3 276), legt der Assistent *Excel → IO-Datei* die fehlenden Tabellen an – nur so viele wie nötig, höchstens bis `NAME3_*` (zusammen 7 876 Kommentare). Aufbau, Datentypen und Reihenfolge entsprechen einer Datei der Steuerung (byte-genau geprüft). Die Vorschau zeigt, welche Tabellen neu sind; vor dem Kopieren auf den Roboter wird wie bisher mit dessen `DIOCFGSV.IO` verglichen.
+
 ## 0.9.2
 
 Abgleich mit einer am Roboter konfigurierten `DIOCFGSV.IO` (über 6 000 Kommentare, GI/GO eingerichtet) klärt die eigentliche Ursache von VARS-032: Die Steuerung verteilt Kommentare auf mehrere Tabellen.

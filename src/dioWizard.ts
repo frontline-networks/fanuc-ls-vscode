@@ -304,23 +304,26 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 				: '';
 			const robots = getControllers();
 			const usage = result.comments.size / Math.max(1, result.capacity);
-			const tables = cfg.commentTables();
-			const noOverflow = tables.length < 2
-				? ' Die Vorlage hat keine Überlauftabellen (<code>NAME2_*</code>, <code>NAME3_*</code>), in die neuere Steuerungen ab 3 276 Kommentaren ausweichen. Stammt sie wirklich vom Zielroboter?'
+			const tables = [...cfg.commentTables().map((t) => t.prefix), ...result.createdTables];
+			const created = result.createdTables.length
+				? message(
+						'info',
+						`<b>Überlauftabellen ${result.createdTables.map((p) => `<code>${p}*</code>`).join(', ')} werden angelegt</b>, weil mehr als 3 276 Kommentare nicht in <code>NAME_*</code> passen – Aufbau und Reihenfolge wie in einer Datei der Steuerung. ` +
+							'Die Steuerung muss diese Variablen kennen (sonst VARS-Alarme beim Laden). Vor dem Kopieren auf den Roboter vergleicht der Assistent die Datei automatisch mit dessen <code>DIOCFGSV.IO</code>.'
+					)
 				: '';
 			const sizeMsg = result.oversized.length
 				? message(
 						'error',
-						`<b>Zu viele Kommentare für eine DIOCFGSV.IO: ${result.comments.size}, höchstens ${result.capacity} möglich.</b> ` +
+						`<b>Zu viele Kommentare für eine DIOCFGSV.IO: ${result.comments.size}, höchstens ${result.capacity} möglich</b> (${tables.map((p) => `<code>${p}*</code>`).join(', ')}). ` +
 							`FANUC lädt keine Variable über ${MAX_VAR_BYTES.toLocaleString('de-DE')} Byte (Alarm <b>VARS-032</b> „Variable size too big“, danach <b>VARS-004</b> „memory not updated“). ` +
-							`Betroffen: ${result.oversized.map((i) => `${i.name} ${i.bytes.toLocaleString('de-DE')} Byte`).join(', ')}.${noOverflow}<br>` +
+							`Betroffen: ${result.oversized.map((i) => `${i.name} ${i.bytes.toLocaleString('de-DE')} Byte`).join(', ')}.<br>` +
 							'Abhilfe: Signaltypen abwählen (Zurück), nicht zugeordnete Kommentare entfernen (Option unten) – oder die Kommentare <b>per KAREL-Programm</b> direkt setzen, dafür gilt diese Grenze nicht.'
 					)
 				: message(
 						usage > 0.9 ? 'warn' : 'info',
-						`Platz in der Datei: ${result.comments.size} von höchstens ${result.capacity} Kommentaren (${Math.round(usage * 100)} %), verteilt wie von der Steuerung auf ${tables.map((t) => `<code>${t.prefix}*</code>`).join(', ')}.` +
-							(usage > 0.9 ? noOverflow : '')
-					);
+						`Platz in der Datei: ${result.comments.size} von höchstens ${result.capacity} Kommentaren (${Math.round(usage * 100)} %), verteilt wie von der Steuerung auf ${tables.map((p) => `<code>${p}*</code>`).join(', ')}.`
+					) + created;
 			const r = await w.step(
 				page({
 					progress: [4, TOTAL],

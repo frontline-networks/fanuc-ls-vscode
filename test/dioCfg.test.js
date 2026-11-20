@@ -219,7 +219,7 @@ test('VARS-032: Grenze von 65 535 Byte je Variable', () => {
 	assert.deepStrictEqual(D.sizeIssues(cfg), []);
 
 	const many = Array.from({ length: 3300 }, (_, i) => ({ type: 2, no: 1000 + i, text: 'Signal ' + i, source: 't' }));
-	const big = D.buildDioCfg(TEMPLATE, many);
+	const big = D.buildDioCfg(TEMPLATE, many, { createOverflow: false });
 	assert.strictEqual(big.comments.size, 3303);
 	assert.deepStrictEqual(big.oversized.map((i) => i.name), ['NAME_NAME', 'NAME_NAME2']);
 	assert.strictEqual(big.oversized[0].bytes, 3303 * 20);
@@ -272,4 +272,29 @@ test('Überlauftabellen NAME2_/NAME3_ und Flags (wie die Steuerung sie schreibt)
 	// Zu viele für alle Tabellen: die letzte läuft über und wird gemeldet
 	const tooMany = Array.from({ length: 8000 }, (_, i) => ({ type: 1, no: 100 + i, text: 'x', source: 't' }));
 	assert.deepStrictEqual(D.buildDioCfg(tpl, tooMany).oversized.map((i) => i.name), ['NAME3_NAME']);
+});
+
+test('Überlauftabellen automatisch anlegen, wenn die Vorlage keine hat', () => {
+	const many = Array.from({ length: 6000 }, (_, i) => ({ type: 2, no: 1000 + i, text: 'Signal ' + i, source: 't' }));
+	const r = D.buildDioCfg(TEMPLATE, many);
+	assert.deepStrictEqual(r.createdTables, ['NAME2_', 'NAME3_']);
+	assert.deepStrictEqual(r.oversized, []);
+	assert.strictEqual(r.capacity, 3276 + 2300 + 2300);
+	const out = D.DioCfg.parse(r.output);
+	assert.deepStrictEqual([...out.records.keys()].filter((n) => n.startsWith('NAME')), [
+		'NAME_LOG_PT', 'NAME2_LOG_PT', 'NAME3_LOG_PT', 'NAME_LOG_PN', 'NAME2_LOG_PN', 'NAME3_LOG_PN',
+		'NAME_NAME', 'NAME_NAME2', 'NAME2_NAME', 'NAME3_NAME'
+	], 'Reihenfolge wie in der Datei der Steuerung');
+	const t = (n) => { const v = D.describeVars(out).find((x) => x.name === n); return [v.t1, v.t2, v.elemSize]; };
+	assert.deepStrictEqual([t('NAME2_LOG_PT'), t('NAME2_LOG_PN'), t('NAME2_NAME')], [[0x20, 24, 1], [0x20, 23, 2], [0x3f, 24, 28]]);
+	assert.deepStrictEqual(out.commentTables().map((x) => x.entries), [3276, 2300, 6003 - 3276 - 2300]);
+	assert.strictEqual(out.comments().size, 6003);
+	assert.strictEqual(out.records.get('DEV_COMMENT') !== undefined, true, 'übrige Variablen bleiben');
+
+	// nur so viele wie nötig, keine bei wenigen Kommentaren
+	assert.deepStrictEqual(D.buildDioCfg(TEMPLATE, many.slice(0, 4000)).createdTables, ['NAME2_']);
+	assert.deepStrictEqual(D.buildDioCfg(TEMPLATE, many.slice(0, 100)).createdTables, []);
+	// mehr als drei Tabellen werden nicht angelegt: die letzte läuft über und wird gemeldet
+	const tooMany = Array.from({ length: 8000 }, (_, i) => ({ type: 1, no: 100 + i, text: 'x', source: 't' }));
+	assert.deepStrictEqual(D.buildDioCfg(TEMPLATE, tooMany).oversized.map((i) => i.name), ['NAME3_NAME']);
 });

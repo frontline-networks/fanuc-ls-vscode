@@ -138,3 +138,80 @@ export function parseKarel(text: string): KarelSymbol[] {
 function sym(kind: KarelSymbolKind, name: string, detail: string, line: number, nameStart: number): KarelSymbol {
 	return { kind, name, detail, line, endLine: line, nameStart: Math.max(nameStart, 0), children: [] };
 }
+
+// --- ktrans: robot.ini --------------------------------------------------------------------
+
+/**
+ * robot.ini legt fest, mit welchen Support-Dateien (Softwarestand, Optionen wie ArcTool) ktrans
+ * übersetzt. Fehlt sie, meldet ktrans "Unable to find 'robot.ini', Using basic KAREL support files"
+ * und kennt nur die Grund-Systemvariablen: $AWSCFG, $AWEPOR usw. sind dann "Id must be defined
+ * before this use". Eine passende robot.ini liegt im Roboterordner einer ROBOGUIDE-Zelle oder wird
+ * mit setrobot.exe (WinOLPC) erzeugt.
+ */
+export interface RobotIni {
+	robot?: string;
+	version?: string;
+	path?: string;
+	support?: string;
+	output?: string;
+}
+
+export function parseRobotIni(text: string): RobotIni | undefined {
+	if (!/^\s*\[WinOLPC_Util\]/im.test(text)) {
+		return undefined;
+	}
+	const out: RobotIni = {};
+	for (const line of text.split(/\r?\n/)) {
+		const m = /^\s*(Robot|Version|Path|Support|Output)\s*=\s*(.*?)\s*$/i.exec(line);
+		if (m) {
+			out[m[1].toLowerCase() as keyof RobotIni] = m[2];
+		}
+	}
+	return out;
+}
+
+/** Steht in den ktrans-Argumenten schon /config? */
+export function hasConfigArg(args: string): boolean {
+	return /(^|\s)[/-]config(\s|$)/i.test(args);
+}
+
+/** Verwendet der Quelltext Systemvariablen ($…) außerhalb von Kommentaren und Zeichenketten? */
+export function usesSystemVariables(text: string): boolean {
+	return text.split(/\r?\n/).some((l) => /\$[A-Za-z_]/.test(stripKarelComment(l).replace(/'[^']*'/g, '')));
+}
+
+/**
+ * Ordner, in denen eine robot.ini gesucht wird: Ordner der .kl-Datei und seine Elternordner bis
+ * einschließlich des Arbeitsbereichsordners (Windows- und POSIX-Pfade).
+ */
+export function robotIniSearchDirs(fileDir: string, workspaceRoots: string[]): string[] {
+	const norm = (p: string) => p.replace(/[\\/]+$/, '').toLowerCase().replace(/\\/g, '/');
+	const root = workspaceRoots.map(norm).filter((r) => norm(fileDir) === r || norm(fileDir).startsWith(r + '/')).sort((a, b) => b.length - a.length)[0];
+	const dirs: string[] = [];
+	let dir = fileDir.replace(/[\\/]+$/, '');
+	for (;;) {
+		dirs.push(dir);
+		if (!root || norm(dir) === root) {
+			break;
+		}
+		const i = Math.max(dir.lastIndexOf('/'), dir.lastIndexOf('\\'));
+		if (i <= 0 || /^[A-Za-z]:$/.test(dir.slice(0, i))) {
+			break;
+		}
+		dir = dir.slice(0, i);
+	}
+	return dirs;
+}
+
+/** Befehlszeile für das Terminal; PowerShell braucht "&" vor einem Programmpfad in Anführungszeichen. */
+export function ktransCommandLine(ktrans: string, source: string, output: string, args: string, robotIni: string | undefined, powershell: boolean): string {
+	const quote = (s: string) => (/\s/.test(s) ? `"${s}"` : s);
+	const parts = [quote(ktrans), quote(source), quote(output)];
+	if (args) {
+		parts.push(args);
+	}
+	if (robotIni && !hasConfigArg(args)) {
+		parts.push('/config', quote(robotIni));
+	}
+	return (powershell && /\s/.test(ktrans) ? '& ' : '') + parts.join(' ');
+}

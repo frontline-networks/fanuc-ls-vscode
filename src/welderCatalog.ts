@@ -139,7 +139,8 @@ export const SECTIONS: Section[] = [
 		tiles: [
 			{ command: 'fanucLs.dt.newFile', icon: '🧾', label: 'Neue ARGDISP-Datei', hint: 'ARGDISP-Datei (.DT) für den Argument-Wizard anlegen' },
 			{ command: 'fanucLs.dt.fromProgram', icon: '🧩', label: 'Argumente beschreiben', hint: 'Argumente (AR[n]) des Programms für den Wizard beschreiben', needs: 'fanuc-ls' },
-			{ command: 'fanucLs.karel.compile', icon: '🛠️', label: 'KAREL kompilieren', hint: 'KAREL-Datei mit ktrans übersetzen', needs: 'fanuc-karel' }
+			{ command: 'fanucLs.karel.compile', icon: '🛠️', label: 'KAREL kompilieren', hint: 'KAREL-Datei mit ktrans übersetzen', needs: 'fanuc-karel' },
+			{ command: 'fanucLs.karel.selectRobotIni', icon: '🤖', label: 'robot.ini wählen', hint: 'Roboter (Softwarestand, Optionen wie ArcTool) für ktrans festlegen – aus der ROBOGUIDE-Zelle' }
 		]
 	}
 ];

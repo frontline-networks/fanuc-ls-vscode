@@ -31,6 +31,8 @@ Alle Befehle sind über die Befehlspalette (`F1` oder `Strg+Umschalt+P`) mit dem
 | FANUC: Signal-Excel in E/A-Konfiguration (DIOCFGSV.IO) umwandeln | Assistent: Signalnamen aus der Excel in die `DIOCFGSV.IO` übernehmen, siehe [[Ein und Ausgänge]] |
 | FANUC: DIOCFGSV.IO prüfen / vergleichen | Bericht zu einer E/A-Konfiguration, Vergleich mit einer zweiten Datei oder dem Roboter (bei VARS-Alarmen) |
 | FANUC: E/A-Kommentare auf Roboter übertragen (KAREL) | KAREL-Programm erzeugen, das die Kommentare am Roboter setzt |
+| FANUC: KAREL kompilieren (ktrans) | `.kl`-Datei mit ktrans übersetzen (mit `robot.ini`, siehe [[KAREL]]) |
+| FANUC: robot.ini für KAREL wählen | `robot.ini` (Softwarestand, Optionen wie ArcTool) für ktrans festlegen |
 
 Weitere Befehle stehen nur im Kontextmenü der Controller-Ansicht zur Verfügung, siehe [[Controller und FTP]].
 

@@ -23,7 +23,7 @@ Für Anwender ohne Programmiererfahrung hat die Extension einen eigenen Seitenre
 | Roboter & Dateien | Roboter einrichten/bearbeiten/entfernen, Passwort, Datei ansehen/herunterladen/hochladen/löschen, Gerät sichern, Roboterdatei vergleichen, Dateien filtern, Filter aufheben, Aktualisieren, FTP-Protokoll |
 | Klon | Klonen/aktualisieren, Änderungen anzeigen, Änderungsbericht, Änderungen übertragen |
 | FANUC-Doku | Doku durchsuchen, Nachschlagen, Doku-Ordner, Doku neu einlesen |
-| Argument-Wizard & KAREL | Neue ARGDISP-Datei, Argumente beschreiben, KAREL kompilieren |
+| Argument-Wizard & KAREL | Neue ARGDISP-Datei, Argumente beschreiben, KAREL kompilieren, robot.ini wählen |
 | Ansicht & Hilfe | Expertenansicht ein/aus, Einstellungen, Hilfe |
 
 ![Alle Funktionen](images/23-schweissen-alle-funktionen.png)

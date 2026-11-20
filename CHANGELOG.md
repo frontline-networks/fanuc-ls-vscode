@@ -8,6 +8,8 @@ Abgleich mit einer am Roboter konfigurierten `DIOCFGSV.IO` (über 6 000 Kommenta
 
 - **Überlauftabellen `NAME2_*` / `NAME3_*`:** Die Steuerung legt höchstens 3 276 Kommentare in `NAME_*` ab, danach je bis 2 300 in `NAME2_*` und `NAME3_*` (ein Textfeld mit 24 Zeichen). Die Extension las und schrieb bisher nur `NAME_*` – Kommentare aus den Überlauftabellen fehlten, und bei vielen Signalen wurde `NAME_*` zu groß (VARS-032). Jetzt werden alle Tabellen gelesen und die Kommentare wie von der Steuerung verteilt. Lesen und Schreiben der Beispieldatei ist byte-genau.
 - **Flag-Kommentare (`F`)** werden gelesen und aus der Excel übernommen.
+- **KAREL kompilieren mit `robot.ini`:** Ohne `robot.ini` kennt ktrans nur die Grund-Systemvariablen, Programme mit ArcTool-Variablen (`$AWSCFG`, `$AWEPOR` …) scheitern mit „Id must be defined before this use“. Neue Einstellung `fanucLs.karel.robotIni`, Kachel/Befehl *robot.ini wählen* (Start in *My Workcells* von ROBOGUIDE); ohne Einstellung wird eine `robot.ini` neben der `.kl`-Datei oder in Elternordnern gesucht und mit `/config` übergeben. Fehlt sie, fragt die Extension vor dem Kompilieren nach.
+- Das Terminal *FANUC KAREL* öffnet sich jetzt im Ordner der jeweiligen `.kl`-Datei (vorher blieb es im Ordner der ersten).
 
 ### Geändert
 

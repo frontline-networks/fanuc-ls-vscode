@@ -437,6 +437,11 @@
         "icon": "$(gear)"
       },
       {
+        "command": "fanucLs.karel.selectRobotIni",
+        "title": "robot.ini für KAREL wählen (ktrans)",
+        "category": "FANUC"
+      },
+      {
         "command": "fanucLs.mirrorGroup",
         "title": "Bewegungsgruppe spiegeln",
         "category": "FANUC",
@@ -1229,6 +1234,12 @@
           "type": "string",
           "default": "",
           "markdownDescription": "Zusätzliche Argumente für ktrans, z. B. `/ver V9.30-1` für die Softwareversion der Steuerung oder `/config robot.ini`."
+        },
+        "fanucLs.karel.robotIni": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "markdownDescription": "`robot.ini` für ktrans (`/config`): legt Softwarestand und Optionen fest, z. B. ArcTool mit `$AWSCFG`. Liegt im Roboterordner einer ROBOGUIDE-Zelle (`Dokumente\\\\My Workcells\\\\<Zelle>\\\\Robot_1\\\\robot.ini`) oder wird mit `setrobot.exe` erzeugt. Leer: `robot.ini` neben der `.kl`-Datei oder in einem Elternordner im Arbeitsbereich. `${workspaceFolder}` ist erlaubt."
         },
         "fanucLs.simpleMode": {
           "type": "boolean",

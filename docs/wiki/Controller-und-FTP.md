@@ -89,17 +89,31 @@ Mit einem Klon arbeitet man wie mit einer lokalen Kopie der Steuerung: alles her
 1. **Klonen:** Rechtsklick auf den Controller → **Controller klonen / Klon aktualisieren**, dann die Geräte wählen (Standard: `md:`). Die Dateien landen im Download-Ordner unter `<Controllername>/<Gerät>/…`, z. B. `fanuc/R1_Schweisszelle/md/SCHWEISS1.LS`. Welche Dateitypen geladen werden, legt `fanucLs.clone.fileTypes` fest (Standard: `ls`, `tp`, `vr`, `pc`, `dt`).
 2. **Bearbeiten:** ganz normal im Editor.
 3. **Änderungen anzeigen:** **FANUC: Klon: Änderungen anzeigen** (auch über den Button in der Controller-Ansicht oder per Rechtsklick auf den Klon-Ordner). Die Liste zeigt geänderte, neue und lokal gelöschte Dateien. Ein Klick auf eine geänderte Datei öffnet den Vergleich mit der Steuerung.
-4. **Bericht (optional):** **FANUC: Klon: Änderungsbericht erstellen**, auch im Dialog *Änderungen anzeigen* und vor dem Übertragen (*Erst Bericht anzeigen*). Der Bericht vergleicht jede geänderte Datei mit dem **aktuellen Stand auf dem Roboter**, also genau mit dem, was beim Übertragen überschrieben würde. Er enthält eine Übersicht (geändert/neu/gelöscht, Zeilen +/−, Konflikte), bei TP-Programmen die betroffenen Programmzeilen, Positionen und Kopfangaben und die Änderungen als Diff. Er öffnet sich als Markdown mit Vorschau und lässt sich speichern oder ausdrucken.
-5. **Übertragen:** **FANUC: Klon: Änderungen auf Controller übertragen**. Die Dateien lassen sich einzeln abwählen. Vor dem Upload laufen die Syntaxprüfung und eine Sicherheitsabfrage.
+4. **Bericht (optional):** **FANUC: Klon: Änderungsbericht erstellen**, auch im Dialog *Änderungen anzeigen* und im Assistenten *Übertragen* (*Änderungsbericht*). Der Bericht vergleicht jede geänderte Datei mit dem **aktuellen Stand auf dem Roboter**, also genau mit dem, was beim Übertragen überschrieben würde. Er enthält eine Übersicht (geändert/neu/gelöscht, Zeilen +/−, Konflikte), bei TP-Programmen die betroffenen Programmzeilen, Positionen und Kopfangaben und die Änderungen als Diff. Er öffnet sich als Markdown mit Vorschau und lässt sich speichern oder ausdrucken.
+5. **Übertragen:** **FANUC: Klon: Änderungen auf Controller übertragen** (Kachel *Änderungen übertragen*). Ein Assistent gleicht zuerst jede geänderte Datei mit dem aktuellen Stand auf dem Roboter ab und zeigt eine Tabelle:
+
+   | Status | Bedeutung | angekreuzt |
+   |---|---|---|
+   | ✏️ geändert | im Klon geändert, auf dem Roboter unverändert | ja |
+   | 🆕 neu | gibt es auf dem Roboter noch nicht | ja |
+   | ＝ gleich | inhaltlich gleich wie auf dem Roboter, wird nicht übertragen | – |
+   | ⚠️ Konflikt | auch auf dem Roboter geändert (z. B. am Teach Pendant) oder dort schon vorhanden | nein |
+
+   **Vergleichen** öffnet daneben den Vergleich: **links der Roboter** (gerade geladen, mit Uhrzeit), **rechts die Datei im Klon**. Ankreuzen, *Ausgewählte übertragen*; Konflikte und Dateien mit Syntaxfehlern werden noch einmal bestätigt. Am Ende listet der Assistent je Datei: übertragen, fehlgeschlagen (mit Grund, z. B. Programm am Roboter ausgewählt) oder nicht ausgewählt.
+
+![Klon übertragen](images/37-klon-uebertragen.png)
+
+**Inhaltlicher Vergleich:** Die Steuerung erzeugt eine `.LS` beim Herunterladen jedes Mal neu: Datum und Größe im Kopf (`CREATE`, `MODIFIED`, `LINE_COUNT` …) ändern sich, E/A- und Registerkommentare werden eingesetzt (`DO[12:Greifer]` statt `DO[12]`), Zeilen werden neu nummeriert und formatiert. Deshalb vergleicht die Extension bei `.LS` den Inhalt ohne diese Angaben. Eine gerade hochgeladene Datei gilt danach als gleich, auch wenn die Steuerung sie anders formatiert zurückgibt. Auch *Vergleichen* in der Controller-Ansicht meldet dann „inhaltlich gleich“ (Unterschiede lassen sich trotzdem anzeigen).
 
 Zum Schutz vor verlorenen Änderungen:
-- Vor jedem Upload wird geprüft, ob die Datei **auf der Steuerung seit dem Klonen geändert** wurde, etwa am Teach Pendant. Solche Dateien werden nicht überschrieben, sondern als Konflikt gemeldet und lassen sich direkt vergleichen.
+- Konflikte (auf dem Roboter seit dem Klonen geändert) sind nicht angekreuzt und müssen bewusst bestätigt werden.
+- Nach jedem Upload merkt sich der Klon den Stand, den die Steuerung daraus erzeugt hat. Schlägt eine Datei fehl, bleiben die schon übertragenen trotzdem vermerkt.
 - **Klon aktualisieren** (erneut klonen) lädt den aktuellen Stand der Steuerung, überschreibt aber keine lokal geänderten Dateien.
 - Lokal gelöschte Dateien werden **nicht** auf der Steuerung gelöscht.
 
 ![Änderungsbericht](images/25-klon-bericht.png)
 
-Der Stand des letzten Abgleichs steht in `.fanuc-clone.json` im Klon-Ordner (Remote-Pfad und Prüfsumme je Datei). Die Datei gehört zum Klon und sollte nicht gelöscht werden. Wer den Klon mit Git versioniert, kann sie mit einchecken.
+Der Stand des letzten Abgleichs steht in `.fanuc-clone.json` im Klon-Ordner (Remote-Pfad, Prüfsumme je Datei und der inhaltliche Stand auf dem Roboter). Klone älterer Versionen funktionieren weiter; den inhaltlichen Stand erhalten sie beim nächsten Klonen oder Übertragen. Die Datei gehört zum Klon und sollte nicht gelöscht werden. Wer den Klon mit Git versioniert, kann sie mit einchecken.
 
 ## Fehlersuche
 

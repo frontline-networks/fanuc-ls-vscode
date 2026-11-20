@@ -23,7 +23,7 @@ import * as ftp from './ftp';
 import { fixLineCountEdit, renumberEdits, touchModifiedEdit } from './edits';
 import { isValidProgramName } from './parser';
 import { registerCloneCommands } from './clone';
-import { originFromClone } from './cloneCore';
+import { contentHash, originFromClone } from './cloneCore';
 import { ControllerProgramIndex } from './controllerPrograms';
 import { locate } from './location';
 import { isReadOnlyReport } from './ioKarel';
@@ -586,7 +586,7 @@ export function registerCommands(
 	}
 
 	/** Lädt die Datei vom Controller in ein temporäres Verzeichnis und öffnet den Diff-Editor. */
-	async function showDiff(controller: ControllerConfig, remotePath: string, localPath: string): Promise<void> {
+	async function showDiff(controller: ControllerConfig, remotePath: string, localPath: string, column?: vscode.ViewColumn): Promise<void> {
 		const name = remotePath.replace(/^.*[:/]/, '');
 		const dir = path.join(os.tmpdir(), 'fanuc-ls', 'compare', sanitize(controller.name), sanitize(remotePath.replace(/[^:/]*$/, '')));
 		const remoteCopy = path.join(dir, name);
@@ -599,13 +599,25 @@ export function registerCommands(
 			vscode.window.showInformationMessage(`${name}: lokale Datei und ${controller.name} sind identisch.`);
 			return;
 		}
-		// Klar beschriften, was links (Roboter, online) und rechts (PC, offline) steht (#23)
+		// Die Steuerung erzeugt eine .LS beim Herunterladen neu: Datum/Größe im Kopf und E/A-Kommentare weichen ab (#30)
+		if (contentHash(a, name) === contentHash(b, name)) {
+			const show = await vscode.window.showInformationMessage(
+				`${name}: inhaltlich gleich wie auf ${controller.name}. Unterschiede nur in Kopfangaben (Datum, Größe), E/A-/Registerkommentaren, Zeilennummern oder Leerzeichen – die Steuerung erzeugt diese beim Herunterladen selbst.`,
+				'Unterschiede trotzdem zeigen'
+			);
+			if (!show) {
+				return;
+			}
+		}
+		// Klar beschriften, was links (Roboter, online) und rechts (PC, offline) steht (#23, #30)
 		const local = await locate(localPath, (p) => originOf(context, p));
+		const time = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 		await vscode.commands.executeCommand(
 			'vscode.diff',
 			vscode.Uri.file(remoteCopy),
 			vscode.Uri.file(localPath),
-			`${name}: 🤖 Roboter ${controller.name} (online, jetzt) ↔ 💻 ${local.label}`
+			`${name}: LINKS 🤖 Roboter ${controller.name} (online, geladen ${time}) ↔ RECHTS 💻 ${local.label}`,
+			column ? { viewColumn: column } : undefined
 		);
 	}
 

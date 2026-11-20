@@ -7,11 +7,16 @@ import { ControllerNode, ControllerTreeProvider } from './controllerTree';
 import * as ftp from './ftp';
 import { ReportEntry, buildReport } from './cloneReport';
 import { isReadOnlyReport } from './ioKarel';
+import { Wizard, button, cancelButton, esc, list, message, page } from './welderUi';
 import {
 	CloneChange,
 	CloneManifest,
 	MANIFEST_NAME,
+	SyncCheck,
+	SyncState,
+	classifyChange,
 	computeChanges,
+	contentHash,
 	deviceFolder,
 	findCloneRoot,
 	matchesTypes,
@@ -23,7 +28,7 @@ import {
 export interface CloneDeps {
 	withProgress<T>(title: string, fn: (progress: vscode.Progress<{ message?: string }>) => Promise<T>): Thenable<T>;
 	rememberOrigin(localPath: string, origin: { controller: string; remotePath: string }): void;
-	showDiff(controller: ControllerConfig, remotePath: string, localPath: string): Promise<void>;
+	showDiff(controller: ControllerConfig, remotePath: string, localPath: string, column?: vscode.ViewColumn): Promise<void>;
 	pickController(): Promise<ControllerConfig | undefined>;
 	resolveDownloadDir(): Promise<string | undefined>;
 	/** Nach Uploads: Programmliste des Controllers neu laden. */
@@ -115,7 +120,12 @@ export function registerCloneCommands(
 					await fs.mkdir(path.dirname(local), { recursive: true });
 					await ftp.downloadToFile(controller, secrets, f.remotePath, local);
 					const stat = await fs.stat(local);
-					manifest.files[rel] = { remotePath: f.remotePath, sha1: await sha1File(local), size: stat.size };
+					manifest.files[rel] = {
+						remotePath: f.remotePath,
+						sha1: await sha1File(local),
+						size: stat.size,
+						robotHash: contentHash(await fs.readFile(local), path.basename(local))
+					};
 					deps.rememberOrigin(local, { controller: controller.name, remotePath: f.remotePath });
 					loaded++;
 				}
@@ -220,8 +230,17 @@ export function registerCloneCommands(
 				try {
 					await ftp.downloadToFile(controller, secrets, change.remotePath, probe);
 					entry.robotText = await fs.readFile(probe, 'latin1');
-					const known = clone.manifest.files[change.relPath];
-					entry.conflict = known ? (await sha1File(probe)) !== known.sha1 : change.kind === 'added';
+					if (change.kind !== 'deleted' && entry.localText !== undefined) {
+						const name = path.basename(change.relPath);
+						const check = classifyChange(
+							change.kind,
+							contentHash(entry.localText, name),
+							{ hash: contentHash(entry.robotText, name), sha1: await sha1File(probe) },
+							clone.manifest.files[change.relPath]
+						);
+						entry.conflict = check.state === 'conflict';
+						entry.same = check.state === 'same';
+					}
 				} catch (err) {
 					if (change.kind !== 'added') {
 						entry.error = 'auf dem Roboter nicht lesbar';
@@ -250,94 +269,192 @@ export function registerCloneCommands(
 		if (!controller) {
 			return;
 		}
-		const all = (await computeChanges(clone.root, clone.manifest)).filter((c) => c.kind !== 'deleted');
-		// Diagnose-/Berichtsdateien (z. B. IOSTATE.DG) lassen sich nicht hochladen (#21)
-		const reports = all.filter((c) => isReadOnlyReport(path.basename(c.relPath)));
-		const changes = all.filter((c) => !reports.includes(c));
-		if (reports.length) {
-			vscode.window.showInformationMessage(
-				`Nicht übertragbar, weil von der Steuerung erzeugte Diagnosedateien: ${reports.map((c) => c.relPath).join(', ')}. E/A-Kommentare über „E/A-Kommentare auf Roboter übertragen“ setzen.`
-			);
-		}
-		if (changes.length === 0) {
-			vscode.window.showInformationMessage('Keine geänderten oder neuen Dateien zum Übertragen.');
-			return;
-		}
-		const picked = await vscode.window.showQuickPick(
-			changes.map((c) => ({ ...changeItem(c), picked: true, change: c })),
-			{ canPickMany: true, placeHolder: `Dateien auswählen, die auf ${controller.name} übertragen werden` }
-		);
-		if (!picked || picked.length === 0) {
-			return;
-		}
+		await pushWizard(clone, controller);
+	});
 
-		const withErrors: string[] = [];
-		for (const p of picked) {
-			if ((await deps.countErrors(path.join(clone.root, ...p.change.relPath.split('/')))) > 0) {
-				withErrors.push(p.change.relPath);
+	/**
+	 * Übertragen als Assistent (#30): erst mit dem Roboter abgleichen (inhaltlich, nicht byteweise),
+	 * dann Dateien ankreuzen, je Datei vergleichen, übertragen und das Ergebnis je Datei zeigen.
+	 */
+	async function pushWizard(clone: { root: string; manifest: CloneManifest }, controller: ControllerConfig): Promise<void> {
+		const all = (await computeChanges(clone.root, clone.manifest)).filter((c) => c.kind !== 'deleted');
+		if (all.length === 0) {
+			vscode.window.showInformationMessage(`Klon von ${controller.name}: keine geänderten oder neuen Dateien zum Übertragen.`);
+			return;
+		}
+		const w = new Wizard(`Übertragen → ${controller.name}`);
+		const tmp = path.join(os.tmpdir(), 'fanuc-ls', 'clone-check');
+		await fs.mkdir(tmp, { recursive: true });
+
+		interface Row {
+			change: CloneChange;
+			local: string;
+			check: SyncCheck;
+			errors: number;
+			readOnly: boolean;
+		}
+		const rows: Row[] = [];
+		let i = 0;
+		for (const change of all) {
+			i++;
+			w.busy(`Abgleich mit ${controller.name}: ${i} von ${all.length} – ${change.relPath}`);
+			const local = path.join(clone.root, ...change.relPath.split('/'));
+			const name = path.basename(change.relPath);
+			if (isReadOnlyReport(name)) {
+				rows.push({ change, local, readOnly: true, errors: 0, check: { state: 'same', reason: 'Diagnosedatei der Steuerung – lässt sich nicht hochladen' } });
+				continue;
+			}
+			const localBuf = await fs.readFile(local);
+			let robot: { hash: string; sha1: string } | undefined;
+			const probe = path.join(tmp, sanitize(change.remotePath));
+			try {
+				await ftp.downloadToFile(controller, secrets, change.remotePath, probe);
+				robot = { hash: contentHash(await fs.readFile(probe), name), sha1: await sha1File(probe) };
+			} catch {
+				robot = undefined;
+			}
+			const check = classifyChange(change.kind, contentHash(localBuf, name), robot, clone.manifest.files[change.relPath]);
+			rows.push({ change, local, check, errors: await deps.countErrors(local), readOnly: false });
+			if (check.state === 'same' && robot) {
+				// Inhaltlich gleich: als abgeglichen merken, damit die Datei nicht mehr als Änderung erscheint
+				clone.manifest.files[change.relPath] = { remotePath: change.remotePath, sha1: await sha1File(local), size: localBuf.length, robotHash: robot.hash };
 			}
 		}
-		const question =
-			`${picked.length} Datei(en) auf ${controller.name} übertragen?` +
-			(withErrors.length ? `\n\nDie Syntaxprüfung meldet Fehler in: ${withErrors.join(', ')}` : '');
-		const go = await vscode.window.showWarningMessage(
-			question,
-			{ modal: true, detail: 'Tipp: Der Änderungsbericht zeigt vorher genau, was auf dem Roboter überschrieben wird.' },
-			'Übertragen',
-			'Erst Bericht anzeigen'
-		);
-		if (go === 'Erst Bericht anzeigen') {
-			await vscode.commands.executeCommand('fanucLs.clone.report', vscode.Uri.file(clone.root));
-			return;
-		}
-		if (go !== 'Übertragen') {
+		await writeManifest(clone.root, clone.manifest);
+		if (w.closed) {
 			return;
 		}
 
-		const uploaded: string[] = [];
-		const conflicts: CloneChange[] = [];
-		await deps.withProgress(`Übertragung nach ${controller.name}`, async (progress) => {
-			const tmp = path.join(os.tmpdir(), 'fanuc-ls', 'clone-check');
-			await fs.mkdir(tmp, { recursive: true });
-			let i = 0;
-			for (const { change } of picked) {
-				i++;
-				progress.report({ message: `${i}/${picked.length}  ${change.relPath}` });
-				const local = path.join(clone.root, ...change.relPath.split('/'));
-				if (await changedOnController(controller, change, clone.manifest, tmp)) {
-					conflicts.push(change);
+		w.onCommand = (cmd, arg) => {
+			const row = rows[Number(arg)];
+			if (cmd === 'diff' && row) {
+				void deps.showDiff(controller, row.change.remotePath, row.local, w.editorColumn);
+			} else if (cmd === 'open' && row) {
+				void vscode.window.showTextDocument(vscode.Uri.file(row.local), { viewColumn: w.editorColumn });
+			} else if (cmd === 'report') {
+				void vscode.commands.executeCommand('fanucLs.clone.report', vscode.Uri.file(clone.root));
+			}
+		};
+		const label: Record<SyncState, string> = { changed: '✏️ geändert', new: '🆕 neu', same: '＝ gleich', conflict: '⚠️ Konflikt' };
+		const candidates = rows.filter((r) => !r.readOnly && r.check.state !== 'same');
+		let selected = new Set(rows.map((r, k) => (candidates.includes(r) && r.check.state !== 'conflict' ? k : -1)).filter((k) => k >= 0));
+		let error: string | undefined;
+		let confirmed = false;
+		for (;;) {
+			const table =
+				'<table><tr><th></th><th>Datei (PC-Klon → Roboter)</th><th>Status</th><th></th></tr>' +
+				rows
+					.map((r, k) => {
+						const box = candidates.includes(r) ? `<input type="checkbox" name="f" value="${k}"${selected.has(k) ? ' checked' : ''}>` : '';
+						const errs = r.errors ? `<br><small>⚠️ ${r.errors} Syntaxfehler</small>` : '';
+						const cmp = r.check.state === 'new' || r.readOnly ? button('Öffnen', 'cmd:open', { arg: String(k) }) : button('Vergleichen', 'cmd:diff', { arg: String(k) });
+						return `<tr><td>${box}</td><td><code>${esc(r.change.relPath)}</code><br><small>→ ${esc(r.change.remotePath)}</small></td><td>${label[r.check.state]}<br><small>${esc(r.check.reason)}</small>${errs}</td><td>${cmp}</td></tr>`;
+					})
+					.join('') +
+				'</table>';
+			const same = rows.filter((r) => r.check.state === 'same' && !r.readOnly).length;
+			const r = await w.step(
+				page({
+					progress: [1, 2],
+					title: 'Was soll auf den Roboter?',
+					intro:
+						`Abgeglichen mit dem aktuellen Stand auf <b>${esc(controller.name)}</b>. Verglichen wird der <b>Inhalt</b>: Datum und Größe im Programmkopf, ` +
+						'E/A- und Registerkommentare (<code>DO[12:…]</code>), Zeilennummern und Leerzeichen zählen nicht. ' +
+						'<b>Vergleichen</b> zeigt links den Roboter (jetzt geladen), rechts die Datei im Klon.',
+					error,
+					content:
+						(same ? message('info', `${same} Datei(en) sind inhaltlich gleich wie auf dem Roboter und werden nicht übertragen.`) : '') +
+						(rows.some((x) => x.check.state === 'conflict')
+							? message('warn', '<b>Konflikt:</b> Die Datei wurde auch auf dem Roboter geändert oder gibt es dort schon. Beim Übertragen gehen die Änderungen auf dem Roboter verloren – erst vergleichen, nur bewusst ankreuzen.')
+							: '') +
+						table,
+					buttons:
+						(candidates.length ? button('📤 Ausgewählte übertragen', 'go', { primary: true }) : '') +
+						button('Änderungsbericht', 'cmd:report') +
+						cancelButton()
+				})
+			);
+			if (r.act !== 'go') {
+				return w.close();
+			}
+			selected = new Set(list(r.values.f).map(Number));
+			if (selected.size === 0) {
+				error = 'Bitte mindestens eine Datei ankreuzen.';
+				continue;
+			}
+			const risky = [...selected].map((k) => rows[k]).filter((x) => x.check.state === 'conflict' || x.errors > 0);
+			if (risky.length && !confirmed) {
+				const c = await w.step(
+					page({
+						title: 'Wirklich übertragen?',
+						content: message(
+							'warn',
+							`Bei diesen Dateien bitte bewusst bestätigen:<ul>${risky
+								.map((x) => `<li><code>${esc(x.change.relPath)}</code> – ${x.check.state === 'conflict' ? esc(x.check.reason) + ' (wird überschrieben)' : ''}${x.errors ? ` ${x.errors} Syntaxfehler` : ''}</li>`)
+								.join('')}</ul>`
+						),
+						buttons: button('Trotzdem übertragen', 'yes', { danger: true }) + button('← Zurück', 'back')
+					})
+				);
+				if (c.act !== 'yes') {
+					if (c.act === 'cancel') {
+						return w.close();
+					}
 					continue;
 				}
-				await ftp.uploadFile(controller, secrets, local, change.remotePath);
-				const stat = await fs.stat(local);
-				clone.manifest.files[change.relPath] = {
-					remotePath: change.remotePath,
-					sha1: await sha1File(local),
-					size: stat.size
-				};
-				deps.rememberOrigin(local, { controller: controller.name, remotePath: change.remotePath });
-				uploaded.push(change.relPath);
+				confirmed = true;
+			}
+			break;
+		}
+
+		const done: Row[] = [];
+		const failed: { row: Row; reason: string }[] = [];
+		const chosen = [...selected].sort((x, y) => x - y).map((k) => rows[k]);
+		let n = 0;
+		for (const row of chosen) {
+			n++;
+			w.busy(`Übertragen ${n} von ${chosen.length}: ${row.change.relPath}`);
+			const name = path.basename(row.change.relPath);
+			try {
+				await ftp.uploadFile(controller, secrets, row.local, row.change.remotePath);
+				// Stand merken, den die Steuerung daraus erzeugt (bei .LS neu formatiert)
+				let robotHash = contentHash(await fs.readFile(row.local), name);
+				const probe = path.join(tmp, sanitize(row.change.remotePath));
+				try {
+					await ftp.downloadToFile(controller, secrets, row.change.remotePath, probe);
+					robotHash = contentHash(await fs.readFile(probe), name);
+				} catch {
+					// nicht lesbar: lokalen Inhalt annehmen
+				}
+				const stat = await fs.stat(row.local);
+				clone.manifest.files[row.change.relPath] = { remotePath: row.change.remotePath, sha1: await sha1File(row.local), size: stat.size, robotHash };
+				deps.rememberOrigin(row.local, { controller: controller.name, remotePath: row.change.remotePath });
+				done.push(row);
+			} catch (err) {
+				failed.push({ row, reason: err instanceof Error ? err.message : String(err) });
 			}
 			await writeManifest(clone.root, clone.manifest);
-		});
+		}
 		tree.refresh();
 		deps.programsChanged(controller.name);
-
-		if (conflicts.length === 0) {
-			vscode.window.showInformationMessage(`${uploaded.length} Datei(en) auf ${controller.name} übertragen.`);
-			return;
-		}
-		const names = conflicts.map((c) => c.relPath).join(', ');
-		const action = await vscode.window.showWarningMessage(
-			`${uploaded.length} übertragen. Nicht übertragen, weil auf ${controller.name} seit dem Klonen geändert: ${names}. ` +
-				'Bitte vergleichen und die Datei danach neu klonen oder einzeln hochladen.',
-			'Ersten Konflikt vergleichen'
+		const notChosen = rows.filter((x) => !chosen.includes(x));
+		await w.step(
+			page({
+				progress: [2, 2],
+				title: failed.length ? 'Übertragung mit Fehlern' : 'Übertragung fertig',
+				content:
+					(done.length ? message('ok', `<b>${done.length} Datei(en) übertragen:</b><br>${done.map((x) => `<code>${esc(x.change.relPath)}</code>`).join(', ')}`) : '') +
+					(failed.length
+						? message('error', `<b>${failed.length} Datei(en) nicht übertragen:</b><ul>${failed.map((f) => `<li><code>${esc(f.row.change.relPath)}</code>: ${esc(f.reason)}</li>`).join('')}</ul>`)
+						: '') +
+					(notChosen.length
+						? message('info', `<b>Nicht übertragen (nicht ausgewählt):</b><ul>${notChosen.map((x) => `<li><code>${esc(x.change.relPath)}</code> – ${esc(x.check.reason)}</li>`).join('')}</ul>`)
+						: ''),
+				buttons: button('Fertig', 'done', { primary: true })
+			})
 		);
-		if (action) {
-			const c = conflicts[0];
-			await deps.showDiff(controller, c.remotePath, path.join(clone.root, ...c.relPath.split('/')));
-		}
-	});
+		w.close();
+	}
 
 	// --- Hilfsfunktionen ------------------------------------------------------
 
@@ -361,30 +478,6 @@ export function registerCloneCommands(
 				out.push({ remotePath, inDevice });
 			}
 		}
-	}
-
-	/**
-	 * Prüft vor dem Upload, ob die Datei auf der Steuerung seit dem letzten Abgleich
-	 * verändert wurde (bzw. bei neuen Dateien: bereits existiert).
-	 */
-	async function changedOnController(
-		controller: ControllerConfig,
-		change: CloneChange,
-		manifest: CloneManifest,
-		tmpDir: string
-	): Promise<boolean> {
-		const known = manifest.files[change.relPath];
-		const probe = path.join(tmpDir, sanitize(change.remotePath));
-		try {
-			await ftp.downloadToFile(controller, secrets, change.remotePath, probe);
-		} catch {
-			// nicht vorhanden: bei neuen Dateien in Ordnung, bei bekannten ein Konflikt
-			return !!known;
-		}
-		if (!known) {
-			return true;
-		}
-		return (await sha1File(probe)) !== known.sha1;
 	}
 
 	function findController(manifest: CloneManifest): ControllerConfig | undefined {

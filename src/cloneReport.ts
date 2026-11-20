@@ -169,6 +169,8 @@ export interface ReportEntry {
 	localText?: string;
 	/** Datei wurde auf dem Roboter seit dem Klonen geändert */
 	conflict: boolean;
+	/** inhaltlich gleich wie auf dem Roboter (nur Kopf, Kommentare, Leerzeichen anders) */
+	same?: boolean;
 	error?: string;
 }
 
@@ -225,8 +227,10 @@ export function buildReport(info: ReportInfo, entries: ReportEntry[]): string {
 		}
 		const hint = e.error
 			? `⚠️ ${e.error}`
-			: e.conflict
-				? '⚠️ auf dem Roboter seit dem Klonen geändert – wird nicht übertragen'
+			: e.same
+				? '＝ inhaltlich gleich (nur Kopf, Kommentare oder Leerzeichen anders) – wird nicht übertragen'
+				: e.conflict
+				? '⚠️ Konflikt: auch auf dem Roboter geändert – nur bewusst übertragen'
 				: e.change.kind === 'deleted'
 					? 'bleibt auf dem Roboter (Löschen wird nicht übertragen)'
 					: e.change.kind === 'added' && e.robotText === undefined
@@ -237,7 +241,7 @@ export function buildReport(info: ReportInfo, entries: ReportEntry[]): string {
 	out.push('');
 	if (conflicts.length) {
 		out.push(
-			`> ⚠️ **${conflicts.length} Datei(en) wurden auf dem Roboter seit dem Klonen geändert.** Diese werden beim Übertragen übersprungen, damit nichts verloren geht. Bitte vergleichen und neu klonen.`,
+			`> ⚠️ **${conflicts.length} Datei(en) wurden auch auf dem Roboter geändert.** Der Assistent *Übertragen* kreuzt sie nicht an; wer sie ankreuzt, überschreibt die Änderungen auf dem Roboter. Bitte vorher vergleichen.`,
 			''
 		);
 	}
@@ -259,6 +263,10 @@ export function buildReport(info: ReportInfo, entries: ReportEntry[]): string {
 		const diff = diffLines(e.robotText, e.localText);
 		if (!diff.some((x) => x.kind !== ' ')) {
 			out.push('Inhalt identisch mit dem Stand auf dem Roboter.', '');
+			continue;
+		}
+		if (e.same) {
+			out.push('Inhaltlich gleich wie auf dem Roboter: Unterschiede nur in Kopfangaben (Datum, Größe), E/A-/Registerkommentaren, Zeilennummern oder Leerzeichen.', '');
 			continue;
 		}
 		if (isLs) {

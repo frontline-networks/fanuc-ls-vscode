@@ -17,7 +17,7 @@ Alle Befehle sind über die Befehlspalette (`F1` oder `Strg+Umschalt+P`) mit dem
 | FANUC: Mit Controller vergleichen | Diff zwischen offener Datei und Steuerung |
 | FANUC: Controller klonen / Klon aktualisieren | Geräte einer Steuerung in einen lokalen Ordner laden |
 | FANUC: Klon: Änderungen anzeigen | geänderte, neue und gelöschte Dateien im Klon |
-| FANUC: Klon: Änderungen auf Controller übertragen | geänderte Dateien hochladen, mit Konfliktprüfung |
+| FANUC: Klon: Änderungen auf Controller übertragen | Assistent: geänderte Dateien abgleichen (inhaltlich), ankreuzen, vergleichen, hochladen |
 | FANUC: FTP-Protokoll anzeigen | Ausgabekanal *FANUC FTP* öffnen |
 | FANUC: Filtern / Suchen | Dateien im Controller-Baum nach Typ und Name filtern |
 | FANUC: Filter aufheben | alle Dateien wieder anzeigen |

@@ -1,5 +1,21 @@
 # Änderungen
 
+## 0.10.0
+
+Enthält auch die nicht einzeln veröffentlichte Version 0.9.5 (KAREL: ktrans mit `robot.ini` ohne Zieldatei, siehe unten).
+
+### Geändert
+
+- **Seitenreiter „FANUC Roboter“** (#31): Der Seitenreiter mit allen Funktionen heißt nicht mehr *FANUC Schweißen*, sondern *FANUC Roboter*, mit Roboterarm-Symbol. Der Experten-Seitenreiter heißt *FANUC Experte*. Die Schweiß-Assistenten (Geschwindigkeit, Spiegeln) stehen im eigenen Bereich *Schweißen*. Befehls-IDs und Einstellungen bleiben gleich. Wiki-Seite: *Roboter-Oberfläche*.
+- **Eine Kachel für Sicherungen** (#29): *Gerät sichern* entfällt; der Assistent *Sicherung* sichert wahlweise einzelne Speicher (`md:`, `fr:`, `ud1:` …). Im Controller-Baum bleibt *Ganzes Gerät sichern* im Kontextmenü.
+- **Klon übertragen als Assistent** (#30): Tabelle mit Status je Datei (geändert, neu, inhaltlich gleich, Konflikt), Ankreuzen, *Vergleichen* direkt neben der Tabelle, Bestätigung bei Konflikten und Syntaxfehlern, Ergebnis je Datei (übertragen, fehlgeschlagen mit Grund, nicht ausgewählt).
+
+### Behoben
+
+- **Klon: falsche „unterschiedlich“-Meldungen und Konflikte** (#30): Die Steuerung erzeugt eine `.LS` beim Herunterladen neu (Datum/Größe im Kopf, E/A- und Registerkommentare, Zeilennummern). Verglichen wurde byteweise, deshalb galten gerade hochgeladene Dateien weiter als unterschiedlich und wurden beim nächsten Übertragen als Konflikt übersprungen. Jetzt wird bei `.LS` der Inhalt verglichen; nach dem Upload merkt sich der Klon den Stand, den die Steuerung daraus erzeugt.
+- **Klon: Abbruch bei einer abgelehnten Datei** (#30): Schlug ein Upload fehl (z. B. Programm am Roboter ausgewählt), brach die Übertragung ab und die schon übertragenen Dateien wurden nicht vermerkt. Jetzt wird jede Datei einzeln behandelt und gemeldet.
+- **Vergleichen** meldet „inhaltlich gleich“, wenn sich nur von der Steuerung erzeugte Angaben unterscheiden; die Seiten sind mit LINKS (Roboter, Ladezeit) und RECHTS (PC) beschriftet.
+
 ## 0.9.5
 
 ### Behoben

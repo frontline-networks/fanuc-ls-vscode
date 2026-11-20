@@ -54,7 +54,7 @@ test('Bericht mit Übersicht, Konflikt und Diff', () => {
 	assert.match(md, /Positionen: P\[2\]/);
 	assert.match(md, /-   2:L P\[2\] 10mm\/sec FINE/);
 	assert.match(md, /\+   2:L P\[2\] 12mm\/sec FINE/);
-	assert.match(md, /1 Datei\(en\) wurden auf dem Roboter seit dem Klonen geändert/);
+	assert.match(md, /1 Datei\(en\) wurden auch auf dem Roboter geändert/);
 	assert.match(md, /neu auf dem Roboter/);
 	assert.match(md, /bleibt auf dem Roboter/);
 });

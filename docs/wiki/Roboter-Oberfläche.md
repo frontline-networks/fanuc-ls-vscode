@@ -1,6 +1,6 @@
 # Roboter-Oberfläche
 
-Für Anwender ohne Programmiererfahrung hat die Extension einen eigenen Seitenreiter: **FANUC Roboter** (Symbol mit Roboterarm links in der Aktivitätsleiste; bis Version 0.9 hieß er *FANUC Schweißen*). Dort ist **jede Funktion der Extension** als Kachel erreichbar. Die häufigsten Aufgaben laufen über Assistenten, die Schritt für Schritt durchführen. Befehlspalette, Kontextmenüs und der Programmcode werden dafür nicht gebraucht.
+Für Anwender ohne Programmiererfahrung hat die Extension einen eigenen Seitenreiter: **FANUC Roboter** (Symbol mit Roboterarm links in der Aktivitätsleiste; vor Version 1.0 hieß er *FANUC Schweißen*). Dort ist **jede Funktion der Extension** als Kachel erreichbar. Die häufigsten Aufgaben laufen über Assistenten, die Schritt für Schritt durchführen. Befehlspalette, Kontextmenüs und der Programmcode werden dafür nicht gebraucht.
 
 ![Startseite](images/15-schweissen-start.png)
 

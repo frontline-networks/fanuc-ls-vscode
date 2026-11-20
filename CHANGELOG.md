@@ -1,8 +1,8 @@
 # Änderungen
 
-## 0.10.0
+## 1.0.0
 
-Enthält auch die nicht einzeln veröffentlichte Version 0.9.5 (KAREL: ktrans mit `robot.ini` ohne Zieldatei, siehe unten).
+Erste stabile Version. Enthält auch die nicht einzeln veröffentlichte Version 0.9.5 (KAREL: ktrans mit `robot.ini` ohne Zieldatei, siehe unten).
 
 ### Geändert
 

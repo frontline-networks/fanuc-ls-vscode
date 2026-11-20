@@ -11,7 +11,7 @@ Für Anwender ohne Programmiererfahrung hat die Extension einen eigenen Seitenre
 - Die Kacheln sind in **aufklappbare Bereiche** gegliedert. Welche Bereiche offen sind, merkt sich die Seite.
 - **Mit der Maus über einer Kachel** erscheint eine kurze Erklärung.
 - Kacheln, die ein Programm brauchen (z. B. *Sprungmarke einfügen*), arbeiten mit dem **zuletzt bearbeiteten Programm** und holen es dafür nach vorne. Ist noch keins offen, bietet die Seite *Programm vom Roboter holen* oder *Datei öffnen* an.
-- Funktionen, die sonst einen Eintrag im Controller-Baum brauchen (*Datei ansehen*, *Datei löschen*, *Gerät sichern* …), fragen Roboter, Gerät und Datei nacheinander in Auswahllisten ab.
+- Funktionen, die sonst einen Eintrag im Controller-Baum brauchen (*Datei ansehen*, *Datei löschen* …), fragen Roboter, Gerät und Datei nacheinander in Auswahllisten ab.
 
 | Bereich | Kacheln |
 |---|---|
@@ -21,7 +21,7 @@ Für Anwender ohne Programmiererfahrung hat die Extension einen eigenen Seitenre
 | Sprungmarken | Einfügen, Alle neu nummerieren, Kommentar ändern, Nummer ändern |
 | Positionen & Achsen | Position anlegen, Gruppe hinzufügen/entfernen, Zusatzachse hinzufügen/entfernen |
 | Ein-/Ausgänge | Vom Roboter importieren, IO-Datei prüfen, Kommentare auf Roboter, CSV importieren/exportieren, Gültige Bereiche, Status ein/aus, Status entfernen, E/A suchen, E/A-Filter aufheben, Neu laden |
-| Roboter & Dateien | Roboter einrichten/bearbeiten/entfernen, Passwort, Datei ansehen/herunterladen/hochladen/löschen, Gerät sichern, Roboterdatei vergleichen, Dateien filtern, Filter aufheben, Aktualisieren, FTP-Protokoll |
+| Roboter & Dateien | Roboter einrichten/bearbeiten/entfernen, Passwort, Datei ansehen/herunterladen/hochladen/löschen, Roboterdatei vergleichen, Dateien filtern, Filter aufheben, Aktualisieren, FTP-Protokoll |
 | Klon | Klonen/aktualisieren, Änderungen anzeigen, Änderungsbericht, Änderungen übertragen |
 | FANUC-Doku | Doku durchsuchen, Nachschlagen, Doku-Ordner, Doku neu einlesen |
 | Argument-Wizard & KAREL | Neue ARGDISP-Datei, Argumente beschreiben, KAREL kompilieren, robot.ini wählen |
@@ -35,7 +35,7 @@ Für Anwender ohne Programmiererfahrung hat die Extension einen eigenen Seitenre
 |---|---|
 | **Programm vom Roboter holen** | Roboter wählen → Programm aus der Liste suchen und anklicken → das Programm öffnet sich. Gespeichert wird es unter `fanuc/<Robotername>/`. Gibt es am PC schon eine Kopie, fragt der Assistent, ob sie ersetzt werden soll. |
 | **Programm auf Roboter laden** | Das Programm wird automatisch geprüft. **Bei Fehlern wird es nicht geladen.** Danach Roboter wählen (vorgeschlagen wird der Roboter, von dem das Programm stammt) und bestätigen. Der Assistent warnt, wenn das Programm auf dem Roboter ersetzt wird. |
-| **Sicherung machen** | Kopiert alle Dateien eines Roboters (Standard: `md:`) auf den PC nach `fanuc/Sicherungen/<Roboter>/<Datum_Uhrzeit>/`. Am Roboter wird nichts verändert. |
+| **Sicherung machen** | Kopiert alle Dateien der gewählten Speicher eines Roboters (Standard: `md:`, ankreuzbar auch `fr:`, `mc:`, `ud1:` …) auf den PC nach `fanuc/Sicherungen/<Roboter>/<Datum_Uhrzeit>/`. Am Roboter wird nichts verändert. Ersetzt die frühere Kachel *Gerät sichern*; im Controller-Baum gibt es *Ganzes Gerät sichern* weiterhin im Kontextmenü. |
 | **Schweißgeschwindigkeit ändern** | Zeigt alle Nähte (`Arc Start` … `Arc End`) mit ihrer aktuellen Geschwindigkeit. Nähte ankreuzen → neuen Wert eingeben oder um Prozent ändern → Vorschau → übernehmen. |
 | **Programm spiegeln** | Spiegelt eine Bewegungsgruppe, z. B. für das linke/rechte Bauteil. Ergebnis als neues Programm (empfohlen) oder direkt im Programm. |
 | **Programm prüfen** | Zeigt eine Übersicht (Zeilen, Nähte, Positionen) und alle Fehler in verständlicher Form. Ein Klick auf „Zeile 14“ springt zur Stelle im Programm. |

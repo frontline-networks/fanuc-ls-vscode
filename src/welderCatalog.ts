@@ -25,6 +25,15 @@ export interface Section {
 /** Befehle, die nur intern (mit Argumenten aus Bäumen/Hovern) aufgerufen werden. */
 export const INTERNAL_COMMANDS = ['fanucLs.labels.reveal'];
 
+/**
+ * Befehle, die bewusst keine eigene Kachel haben, weil eine Kachel dasselbe abdeckt
+ * (bleiben im Kontextmenü des Controller-Baums). Wert: Kachel, die sie ersetzt.
+ */
+export const COVERED_COMMANDS: Record<string, string> = {
+	// #29: "Gerät sichern" = Assistent "Sicherung" mit Auswahl der Speicher
+	'fanucLs.downloadDevice': 'fanucLs.welder.backup'
+};
+
 export const SECTIONS: Section[] = [
 	{
 		id: 'often',
@@ -34,7 +43,7 @@ export const SECTIONS: Section[] = [
 			{ command: 'fanucLs.welder.download', icon: '📥', label: 'Programm holen', hint: 'Programm vom Roboter auf den PC holen und öffnen' },
 			{ command: 'fanucLs.welder.upload', icon: '📤', label: 'Auf Roboter laden', hint: 'Programm prüfen und auf den Roboter laden – bei Fehlern gesperrt' },
 			{ command: 'fanucLs.welder.check', icon: '✅', label: 'Prüfen', hint: 'Programm prüfen und Fehler verständlich anzeigen' },
-			{ command: 'fanucLs.welder.backup', icon: '💾', label: 'Sicherung', hint: 'Alle Dateien eines Roboters auf den PC kopieren' },
+			{ command: 'fanucLs.welder.backup', icon: '💾', label: 'Sicherung', hint: 'Dateien eines Roboters auf den PC kopieren – ganze Speicher wählbar (md:, fr:, ud1: …)' },
 			{ command: 'fanucLs.io.excelToDiocfg', icon: '📊', label: 'Excel → IO-Datei', hint: 'Signalnamen aus der Signal-Excel (Fanuc IO-Mapping) in die E/A-Konfiguration DIOCFGSV.IO übernehmen' }
 		]
 	},
@@ -111,7 +120,6 @@ export const SECTIONS: Section[] = [
 			{ command: 'fanucLs.openRemoteFile', icon: '📂', label: 'Datei ansehen', hint: 'Datei vom Roboter zum Ansehen öffnen (temporär)' },
 			{ command: 'fanucLs.downloadFile', icon: '⬇️', label: 'Datei herunterladen', hint: 'Beliebige Datei vom Roboter in den Arbeitsordner laden' },
 			{ command: 'fanucLs.uploadToDevice', icon: '⬆️', label: 'Dateien hochladen', hint: 'Dateien vom PC auf ein Gerät des Roboters laden' },
-			{ command: 'fanucLs.downloadDevice', icon: '🗄️', label: 'Gerät sichern', hint: 'Alle Dateien eines Geräts (md:, fr: …) sichern' },
 			{ command: 'fanucLs.compareRemoteWithLocal', icon: '↔️', label: 'Roboterdatei vergleichen', hint: 'Datei auf dem Roboter mit der Kopie am PC vergleichen' },
 			{ command: 'fanucLs.deleteRemoteFile', icon: '❌', label: 'Datei löschen', hint: 'Datei auf dem Roboter löschen (mit Rückfrage)' },
 			{ command: 'fanucLs.filter', icon: '🔎', label: 'Dateien filtern', hint: 'Im Controller-Baum nur bestimmte Dateitypen oder Namen anzeigen' },

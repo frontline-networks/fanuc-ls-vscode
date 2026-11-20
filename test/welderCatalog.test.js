@@ -1,12 +1,17 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { SECTIONS, INTERNAL_COMMANDS, allTiles } = require('../out/welderCatalog');
+const { SECTIONS, INTERNAL_COMMANDS, COVERED_COMMANDS, allTiles } = require('../out/welderCatalog');
 const pkg = require('../package.json');
 
 test('jeder Befehl der Extension ist als Kachel erreichbar', () => {
 	const tiles = new Set(allTiles().map((t) => t.command));
-	const missing = pkg.contributes.commands.map((c) => c.command).filter((c) => !tiles.has(c) && !INTERNAL_COMMANDS.includes(c));
+	const missing = pkg.contributes.commands.map((c) => c.command).filter((c) => !tiles.has(c) && !INTERNAL_COMMANDS.includes(c) && !(c in COVERED_COMMANDS));
 	assert.deepStrictEqual(missing, []);
+	// abgedeckte Befehle: die ersetzende Kachel gibt es, eine eigene nicht (#29)
+	for (const [cmd, tile] of Object.entries(COVERED_COMMANDS)) {
+		assert.ok(tiles.has(tile), tile);
+		assert.ok(!tiles.has(cmd), cmd);
+	}
 });
 
 test('Kacheln verweisen nur auf vorhandene Befehle, keine doppelt', () => {

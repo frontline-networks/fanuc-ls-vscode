@@ -203,10 +203,16 @@ export function robotIniSearchDirs(fileDir: string, workspaceRoots: string[]): s
 	return dirs;
 }
 
-/** Befehlszeile für das Terminal; PowerShell braucht "&" vor einem Programmpfad in Anführungszeichen. */
+/**
+ * Befehlszeile für das Terminal; PowerShell braucht "&" vor einem Programmpfad in Anführungszeichen.
+ * Mit /config (robot.ini) übersetzt ktrans im Output-Ordner des Roboters und kopiert die .pc selbst
+ * neben die Quelle. Eine zusätzlich angegebene Zieldatei führt dann zu „Copy to/from source directory
+ * failed: 32“ (die Datei ist noch offen) – deshalb wird sie in diesem Fall weggelassen.
+ */
 export function ktransCommandLine(ktrans: string, source: string, output: string, args: string, robotIni: string | undefined, powershell: boolean): string {
 	const quote = (s: string) => (/\s/.test(s) ? `"${s}"` : s);
-	const parts = [quote(ktrans), quote(source), quote(output)];
+	const withConfig = hasConfigArg(args) || !!robotIni;
+	const parts = withConfig ? [quote(ktrans), quote(source)] : [quote(ktrans), quote(source), quote(output)];
 	if (args) {
 		parts.push(args);
 	}

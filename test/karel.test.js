@@ -52,8 +52,8 @@ test('ktrans mit robot.ini (Systemvariablen von Optionen wie ArcTool)', () => {
 	const ktrans = 'C:\\Program Files (x86)\\FANUC\\WinOLPC\\bin\\ktrans.exe';
 	const robot = 'C:\\Users\\x\\Documents\\My Workcells\\Zelle\\Robot_1\\robot.ini';
 	assert.strictEqual(K.ktransCommandLine(ktrans, 'FRONIUS.kl', 'FRONIUS.pc', '', robot, true),
-		`& "${ktrans}" FRONIUS.kl FRONIUS.pc /config "${robot}"`);
-	assert.strictEqual(K.ktransCommandLine('ktrans', 'a.kl', 'a.pc', '/config x.ini', robot, false), 'ktrans a.kl a.pc /config x.ini', 'eigenes /config gewinnt');
+		`& "${ktrans}" FRONIUS.kl /config "${robot}"`, 'mit robot.ini ohne Zieldatei (sonst Kopierfehler 32)');
+	assert.strictEqual(K.ktransCommandLine('ktrans', 'a.kl', 'a.pc', '/config x.ini', robot, false), 'ktrans a.kl /config x.ini', 'eigenes /config gewinnt');
 	assert.strictEqual(K.ktransCommandLine('ktrans', 'a.kl', 'a.pc', '', undefined, true), 'ktrans a.kl a.pc');
 
 	assert.deepStrictEqual(K.robotIniSearchDirs('D:\\Projekte\\Zelle\\07_Fanuc\\Karel', ['D:\\Projekte\\Zelle']),

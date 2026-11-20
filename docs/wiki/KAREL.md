@@ -61,7 +61,9 @@ Eine vorhandene `robot.ini` lässt sich auch über *Vorhandene robot.ini wählen
 Die Befehlszeile sieht dann so aus:
 
 ```
-& "C:\Program Files (x86)\FANUC\WinOLPC\bin\ktrans.exe" FRONIUS.kl FRONIUS.pc /config "D:\…\Karel\robot.ini"
+& "C:\Program Files (x86)\FANUC\WinOLPC\bin\ktrans.exe" FRONIUS.kl /config "D:\…\Karel\robot.ini"
 ```
+
+Mit `/config` übersetzt ktrans im `Output`-Ordner des ROBOGUIDE-Roboters und kopiert die `.pc` selbst neben die Quelle. Deshalb steht keine Zieldatei im Befehl: Mit Zieldatei wird die `.pc` zwar korrekt erzeugt, ktrans meldet aber `Copy to/from source directory failed: 32`.
 
 Die Syntax wird bisher nur durch ktrans geprüft; eine eigene KAREL-Syntaxprüfung wie bei TP-Programmen gibt es noch nicht.

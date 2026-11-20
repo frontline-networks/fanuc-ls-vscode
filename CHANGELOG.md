@@ -1,5 +1,11 @@
 # Änderungen
 
+## 0.9.5
+
+### Behoben
+
+- **KAREL kompilieren mit `robot.ini`:** ktrans meldete nach erfolgreicher Übersetzung `Copy to/from source directory failed: 32`. Mit `/config` kopiert ktrans die `.pc` selbst aus dem Output-Ordner des Roboters neben die Quelle; die zusätzlich übergebene Zieldatei war dann noch offen. Mit `robot.ini` wird jetzt keine Zieldatei mehr übergeben (am Roboter-PC bestätigt).
+
 ## 0.9.4
 
 ### Behoben

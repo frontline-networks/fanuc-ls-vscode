@@ -9,7 +9,7 @@ Die Extension durchsucht **eure eigenen FANUC-Handbücher**: im Editor und als W
 1. Handbücher in einen Ordner legen, gern mit Unterordnern. Unterstützt werden:
    - **PDF mit Textebene** (die meisten digitalen FANUC-Handbücher)
    - **Text** (`.txt`) und **Markdown** (`.md`), z. B. eigene Notizen zur Zelle oder Auszüge
-2. **FANUC: Doku-Ordner festlegen** (Befehlspalette oder Kachel *Doku-Ordner* auf der Schweißer-Startseite) und den Ordner oder eine einzelne Datei wählen. Das setzt die Einstellung `fanucLs.docs.folder`.
+2. **FANUC: Doku-Ordner festlegen** (Befehlspalette oder Kachel *Doku-Ordner* auf der Startseite *FANUC Roboter*) und den Ordner oder eine einzelne Datei wählen. Das setzt die Einstellung `fanucLs.docs.folder`.
 3. Die Extension liest die Dateien einmal ein (Fortschritt unten in der Statusleiste) und merkt sich das Ergebnis. Danach werden nur neue oder geänderte Dateien gelesen; neue Dateien im Ordner werden automatisch erkannt.
 
 `fanucLs.docs.folder` kann auch von Hand gesetzt werden, z. B. für ein ganzes Team auf ein Netzlaufwerk oder relativ zum Arbeitsordner:

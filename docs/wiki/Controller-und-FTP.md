@@ -28,8 +28,8 @@ Rechtsklick auf einen Controller: **Controller bearbeiten**, **Passwort hinterle
 Hinter jedem Controller steht, ob er erreichbar ist: **● online** (grünes Symbol) oder **○ nicht erreichbar** (rotes Symbol, Fehler im Tooltip). Ohne Angabe ist der Status noch unbekannt.
 
 - Jede FTP-Aktion aktualisiert den Status.
-- Solange die Controller-Ansicht oder die Schweißer-Startseite sichtbar ist, wird zusätzlich regelmäßig kurz angefragt (Standard alle 60 s, `fanucLs.ftp.statusInterval`, `0` = aus).
-- Die Schweißer-Startseite zeigt den Status als 🟢/🔴/⚪ vor dem Roboternamen.
+- Solange die Controller-Ansicht oder die Startseite *FANUC Roboter* sichtbar ist, wird zusätzlich regelmäßig kurz angefragt (Standard alle 60 s, `fanucLs.ftp.statusInterval`, `0` = aus).
+- Die Startseite *FANUC Roboter* zeigt den Status als 🟢/🔴/⚪ vor dem Roboternamen.
 
 ## Filtern und Suchen
 

@@ -3,7 +3,7 @@
 **Benutzung**
 - [[Installation]]
 - [[Erste Schritte]]
-- [[Schweißer-Oberfläche]]
+- [[Roboter-Oberfläche]]
 - [[Syntaxhighlighting und Outline]]
 - [[Syntaxprüfung]]
 - [[Snippets und Zeilennummern]]

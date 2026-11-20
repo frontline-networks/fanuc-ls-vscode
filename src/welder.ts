@@ -1,5 +1,5 @@
 /**
- * Schweißer-Oberfläche: eigener Seitenreiter mit großen Kacheln und
+ * Seitenreiter „FANUC Roboter“: eigener Seitenreiter mit großen Kacheln und
  * Schritt-für-Schritt-Assistenten für Anwender ohne Programmiererfahrung.
  *
  * Die Assistenten nutzen dieselbe Logik wie die Expertenbefehle
@@ -171,7 +171,7 @@ class WelderHome implements vscode.WebviewViewProvider {
 			${robots.length === 0 ? `<div class="tiles">${tile('run', 'fanucLs.welder.setup', '🤖', 'Roboter einrichten', 'Zuerst den Roboter einrichten')}</div>` : ''}
 			<input class="search" type="search" placeholder="Funktion suchen …">
 			${sections}${view}`;
-		this.view.webview.html = htmlDocument('Schweißen', body, HOME_SCRIPT).replace('<body>', '<body class="home">');
+		this.view.webview.html = htmlDocument('FANUC Roboter', body, HOME_SCRIPT).replace('<body>', '<body class="home">');
 	}
 }
 

@@ -161,7 +161,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
 	const api = registerCommands(context, tree, diagnostics, runValidation, programIndex, ioStore);
 
-	// --- Schweißer-Oberfläche (zweiter Seitenreiter) ---------------------------
+	// --- Seitenreiter „FANUC Roboter“ ---------------------------
 
 	const welderHome = registerWelder(context, api);
 	registerLocationStatus(context, (p) => originOf(context, p));

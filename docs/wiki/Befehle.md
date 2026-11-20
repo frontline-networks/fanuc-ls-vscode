@@ -36,4 +36,4 @@ Alle Befehle sind über die Befehlspalette (`F1` oder `Strg+Umschalt+P`) mit dem
 
 Weitere Befehle stehen nur im Kontextmenü der Controller-Ansicht zur Verfügung, siehe [[Controller und FTP]].
 
-Die Assistenten der [[Schweißer-Oberfläche]] stehen unter dem Präfix **FANUC Schweißen:** (Programm holen, laden, sichern, Schweißgeschwindigkeit ändern, spiegeln, prüfen, Roboter einrichten).
+Die Assistenten der [[Roboter-Oberfläche]] stehen unter dem Präfix **FANUC Roboter:** (Programm holen, laden, sichern, Schweißgeschwindigkeit ändern, spiegeln, prüfen, Roboter einrichten).

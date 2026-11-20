@@ -34,7 +34,7 @@ Der **Trichter** in der Ansicht E/A filtert nach Nummer oder Kommentar, z. B. `G
 
 Die Signalnamen aus der Signal-Excel (z. B. **Fanuc IO-Mapping.xls** mit den Blättern *PlcToRob*, *RobToPlc*, *GI*, *GO*) lassen sich direkt in die E/A-Konfiguration des Roboters schreiben, also in die Datei `DIOCFGSV.IO`. Excel muss dafür nicht installiert sein; gelesen werden `.xls` (Excel 97–2003) und `.xlsx`.
 
-**Aufruf:** Kachel **Excel → IO-Datei** auf der Schweißer-Startseite (Bereich *Häufig*), in der Ansicht E/A über `…` oder mit **FANUC: Signal-Excel in E/A-Konfiguration (DIOCFGSV.IO) umwandeln**.
+**Aufruf:** Kachel **Excel → IO-Datei** auf der Startseite *FANUC Roboter* (Bereich *Häufig*), in der Ansicht E/A über `…` oder mit **FANUC: Signal-Excel in E/A-Konfiguration (DIOCFGSV.IO) umwandeln**.
 
 1. **Excel wählen.** Die zuletzt verwendete Datei wird vorgeschlagen.
 2. **Prüfen, was übernommen wird.** Je Blatt stehen Signaltyp, Zeilen und die Anzahl der Signalnamen. Signaltypen lassen sich abwählen. Gelesen werden Blätter, deren erste Kopfzelle der Signaltyp ist (DI, DO, GI, GO, SI, SO, UI, UO, AI, AO, WI, WO …); der Kommentar kommt aus der Spalte **Signal Name** (anpassbar). Blätter mit Flags (`F`) werden ebenfalls übernommen (Port-Typ 35).

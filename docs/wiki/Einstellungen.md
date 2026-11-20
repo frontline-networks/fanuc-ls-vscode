@@ -38,11 +38,11 @@
 | `fanucLs.karel.ktransArgs` | `""` | zusätzliche Argumente, z. B. `/ver V9.30-1` |
 | `fanucLs.karel.robotIni` | `""` | `robot.ini` für ktrans (`/config`), erzeugt mit `setrobot.exe`; leer: neben der `.kl`-Datei suchen |
 
-## Schweißer-Oberfläche
+## Roboter-Oberfläche
 
 | Einstellung | Standard | Bedeutung |
 |---|---|---|
-| `fanucLs.simpleMode` | `false` | Einfacher Modus: blendet den Experten-Seitenreiter und die FANUC-Einträge in den Editor-Menüs aus, siehe [[Schweißer-Oberfläche]] |
+| `fanucLs.simpleMode` | `false` | Einfacher Modus: blendet den Experten-Seitenreiter und die FANUC-Einträge in den Editor-Menüs aus, siehe [[Roboter-Oberfläche]] |
 
 ## Copilot
 

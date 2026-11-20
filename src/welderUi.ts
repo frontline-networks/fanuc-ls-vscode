@@ -1,5 +1,5 @@
 /**
- * Bausteine für die Schweißer-Oberfläche: Assistenten-Fenster (Webview) mit
+ * Bausteine für die Oberfläche „FANUC Roboter“: Assistenten-Fenster (Webview) mit
  * schrittweiser Führung und HTML-Helfer im VS-Code-Farbschema.
  *
  * Ablauf eines Assistenten:

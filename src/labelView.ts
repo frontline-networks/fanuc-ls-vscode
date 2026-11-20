@@ -441,7 +441,7 @@ export function registerLabelFeatures(context: vscode.ExtensionContext): void {
 		if (hit) {
 			return new LabelNode(editor.document, hit.label);
 		}
-		// Cursor steht nicht auf einer Sprungmarke (z. B. Aufruf aus der Schweißer-Oberfläche): auswählen lassen
+		// Cursor steht nicht auf einer Sprungmarke (z. B. Aufruf aus der Startseite FANUC Roboter): auswählen lassen
 		if (analysis.labels.length === 0) {
 			vscode.window.showInformationMessage('Das Programm enthält keine Sprungmarken.');
 			return undefined;

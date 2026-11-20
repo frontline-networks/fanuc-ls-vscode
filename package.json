@@ -165,12 +165,12 @@
       "activitybar": [
         {
           "id": "fanucWelder",
-          "title": "FANUC Schweißen",
-          "icon": "resources/welder.svg"
+          "title": "FANUC Roboter",
+          "icon": "resources/robot-arm.svg"
         },
         {
           "id": "fanucLs",
-          "title": "FANUC",
+          "title": "FANUC Experte",
           "icon": "resources/robot.svg"
         }
       ]
@@ -201,7 +201,7 @@
           "type": "webview",
           "id": "fanucLs.welder.home",
           "name": "Start",
-          "contextualTitle": "FANUC Schweißen"
+          "contextualTitle": "FANUC Roboter"
         }
       ]
     },
@@ -462,43 +462,43 @@
       {
         "command": "fanucLs.welder.download",
         "title": "Programm vom Roboter holen",
-        "category": "FANUC Schweißen",
+        "category": "FANUC Roboter",
         "icon": "$(cloud-download)"
       },
       {
         "command": "fanucLs.welder.upload",
         "title": "Programm auf Roboter laden",
-        "category": "FANUC Schweißen",
+        "category": "FANUC Roboter",
         "icon": "$(cloud-upload)"
       },
       {
         "command": "fanucLs.welder.backup",
         "title": "Sicherung vom Roboter machen",
-        "category": "FANUC Schweißen",
+        "category": "FANUC Roboter",
         "icon": "$(save-all)"
       },
       {
         "command": "fanucLs.welder.speed",
         "title": "Schweißgeschwindigkeit ändern",
-        "category": "FANUC Schweißen",
+        "category": "FANUC Roboter",
         "icon": "$(flame)"
       },
       {
         "command": "fanucLs.welder.mirror",
         "title": "Programm spiegeln (Assistent)",
-        "category": "FANUC Schweißen",
+        "category": "FANUC Roboter",
         "icon": "$(mirror)"
       },
       {
         "command": "fanucLs.welder.check",
         "title": "Programm prüfen (Assistent)",
-        "category": "FANUC Schweißen",
+        "category": "FANUC Roboter",
         "icon": "$(pass)"
       },
       {
         "command": "fanucLs.welder.setup",
         "title": "Roboter einrichten",
-        "category": "FANUC Schweißen",
+        "category": "FANUC Roboter",
         "icon": "$(add)"
       },
       {
@@ -1044,7 +1044,7 @@
           "type": "number",
           "default": 60,
           "minimum": 0,
-          "markdownDescription": "Abstand in Sekunden, in dem geprüft wird, ob die Roboter erreichbar sind (grüner/roter Status). Geprüft wird nur, solange die Controller-Ansicht oder die Schweißer-Startseite sichtbar ist. `0` schaltet die Prüfung ab; der Status wird dann nur bei FTP-Aktionen aktualisiert."
+          "markdownDescription": "Abstand in Sekunden, in dem geprüft wird, ob die Roboter erreichbar sind (grüner/roter Status). Geprüft wird nur, solange die Controller-Ansicht oder die Startseite *FANUC Roboter* sichtbar ist. `0` schaltet die Prüfung ab; der Status wird dann nur bei FTP-Aktionen aktualisiert."
         },
         "fanucLs.ftp.verbose": {
           "type": "boolean",
@@ -1244,7 +1244,7 @@
         "fanucLs.simpleMode": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Einfacher Modus für Anwender ohne Programmiererfahrung: blendet den Experten-Seitenreiter (Controller-Baum, Sprungmarken, E/A) und die FANUC-Einträge in den Editor-Menüs aus. Alle Aufgaben laufen dann über den Seitenreiter **FANUC Schweißen**."
+          "markdownDescription": "Einfacher Modus für Anwender ohne Programmiererfahrung: blendet den Experten-Seitenreiter (Controller-Baum, Sprungmarken, E/A) und die FANUC-Einträge in den Editor-Menüs aus. Alle Aufgaben laufen dann über den Seitenreiter **FANUC Roboter**."
         },
         "fanucLs.docs.folder": {
           "type": "string",

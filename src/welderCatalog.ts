@@ -1,6 +1,6 @@
 /**
  * Alle Funktionen der Extension als Kacheln für die Startseite des Seitenreiters
- * "FANUC Schweißen" - ohne VS-Code-Abhängigkeit, damit testbar (jeder Befehl aus
+ * "FANUC Roboter" - ohne VS-Code-Abhängigkeit, damit testbar (jeder Befehl aus
  * package.json muss hier vorkommen).
  */
 
@@ -33,11 +33,18 @@ export const SECTIONS: Section[] = [
 		tiles: [
 			{ command: 'fanucLs.welder.download', icon: '📥', label: 'Programm holen', hint: 'Programm vom Roboter auf den PC holen und öffnen' },
 			{ command: 'fanucLs.welder.upload', icon: '📤', label: 'Auf Roboter laden', hint: 'Programm prüfen und auf den Roboter laden – bei Fehlern gesperrt' },
-			{ command: 'fanucLs.welder.speed', icon: '🔥', label: 'Geschwindigkeit', hint: 'Geschwindigkeit der Schweißnähte ändern (fester Wert oder Prozent)' },
-			{ command: 'fanucLs.welder.mirror', icon: '🪞', label: 'Spiegeln', hint: 'Programm spiegeln, z. B. für das linke/rechte Bauteil' },
 			{ command: 'fanucLs.welder.check', icon: '✅', label: 'Prüfen', hint: 'Programm prüfen und Fehler verständlich anzeigen' },
 			{ command: 'fanucLs.welder.backup', icon: '💾', label: 'Sicherung', hint: 'Alle Dateien eines Roboters auf den PC kopieren' },
 			{ command: 'fanucLs.io.excelToDiocfg', icon: '📊', label: 'Excel → IO-Datei', hint: 'Signalnamen aus der Signal-Excel (Fanuc IO-Mapping) in die E/A-Konfiguration DIOCFGSV.IO übernehmen' }
+		]
+	},
+	{
+		id: 'weld',
+		title: 'Schweißen',
+		open: true,
+		tiles: [
+			{ command: 'fanucLs.welder.speed', icon: '🔥', label: 'Geschwindigkeit', hint: 'Geschwindigkeit der Schweißnähte ändern (fester Wert oder Prozent)' },
+			{ command: 'fanucLs.welder.mirror', icon: '🪞', label: 'Spiegeln', hint: 'Programm spiegeln, z. B. für das linke/rechte Bauteil' }
 		]
 	},
 	{

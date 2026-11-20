@@ -2,9 +2,9 @@
  * FANUC DIOCFGSV.IO lesen und schreiben: E/A-Kommentare aus einer Signal-Excel
  * (z. B. "Fanuc IO-Mapping") in die E/A-Konfiguration übernehmen.
  *
- * Portierung von diocfg_converter.py. Zuordnungen (ASG_*), MODE_*, AIS_* und DEV_*
- * bleiben unverändert aus der Vorlage (Backup des Zielroboters); nur die
- * Kommentartabellen (NAME_*) werden neu aufgebaut. Ohne VS-Code-Abhängigkeit, damit testbar.
+ * Portierung von diocfg_converter.py. MODE_*, AIS_* und DEV_* bleiben unverändert aus der
+ * Vorlage (Backup des Zielroboters); die Kommentartabellen (NAME_*, Überlauf NAME2_*, NAME3_*)
+ * und auf Wunsch die Zuordnungen (ASG_*) werden neu aufgebaut. Ohne VS-Code-Abhängigkeit, damit testbar.
  *
  * Dateiaufbau: Kopf bis zum ersten 0xFC, danach Variablen:
  *   0xFC, Name\0, Typ1, Typ2, 0x00, Nutzdaten
@@ -17,7 +17,7 @@ import { Sheet, Workbook } from './excelReader';
 export const PORT_TYPES: Record<string, number> = {
 	DI: 1, DO: 2, AI: 3, AO: 4, WI: 16, WO: 17,
 	SI: 11, SO: 12, GI: 18, GO: 19, UI: 20, UO: 21,
-	WSI: 26, WSO: 27
+	WSI: 26, WSO: 27, F: 35
 };
 export const PORT_NAMES: Record<number, string> = Object.fromEntries(Object.entries(PORT_TYPES).map(([k, v]) => [v, k]));
 
@@ -26,6 +26,21 @@ export const NAME2_LEN = 8;
 export const MAX_COMMENT = NAME1_LEN + NAME2_LEN;
 /** Blätter der Vorlage "Fanuc IO-Mapping" */
 export const XLS_SHEETS = ['PlcToRob', 'RobToPlc', 'GI', 'GO'];
+
+/** So viele Kommentare legt die Steuerung höchstens in NAME_ bzw. je Überlauftabelle NAME2_, NAME3_ … ab. */
+export const NAME_TABLE_MAX = 3276;
+export const OVERFLOW_TABLE_MAX = 2300;
+
+export interface CommentTable {
+	prefix: string;
+	/** LOG_PT, LOG_PN, Textfelder */
+	fields: string[];
+	texts: string[];
+	/** Zeichen je Textfeld */
+	widths: number[];
+	capacity: number;
+	entries: number;
+}
 
 const TYPE_SCALAR = 0x00;
 const TYPE_STRING = 0x3f;
@@ -109,12 +124,11 @@ export class DioCfg {
 			records.set(name, { name, t1, t2, raw: b.subarray(pos, p), value, elemSize });
 			pos = p;
 		}
-		for (const r of ['NAME_LOG_PT', 'NAME_LOG_PN', 'NAME_NAME', 'NAME_NAME2']) {
-			if (!Array.isArray(records.get(r)?.value)) {
-				throw new Error(`DIOCFGSV.IO ohne Kommentartabelle ${r}.`);
-			}
+		const cfg = new DioCfg(Buffer.from(b.subarray(0, first)), records);
+		if (!cfg.commentTables().length) {
+			throw new Error('DIOCFGSV.IO ohne Kommentartabelle NAME_LOG_PT.');
 		}
-		return new DioCfg(Buffer.from(b.subarray(0, first)), records);
+		return cfg;
 	}
 
 	get version(): number | undefined {
@@ -127,32 +141,78 @@ export class DioCfg {
 		return Array.isArray(v) ? v : [];
 	}
 
-	comments(): Map<CommentKey, string> {
-		const pt = this.arr('NAME_LOG_PT');
-		const pn = this.arr('NAME_LOG_PN');
-		const n1 = this.arr('NAME_NAME');
-		const n2 = this.arr('NAME_NAME2');
-		const out = new Map<CommentKey, string>();
-		pt.forEach((t, i) => out.set(key(Number(t), Number(pn[i])), String(n1[i] ?? '') + String(n2[i] ?? '')));
+	/**
+	 * Kommentartabellen in Dateireihenfolge: NAME_ (Text in NAME_NAME + NAME_NAME2, 16 + 8 Zeichen),
+	 * danach die Überlauftabellen NAME2_, NAME3_ … (ein Textfeld mit 24 Zeichen).
+	 * FANUC füllt sie nacheinander: zuerst NAME_, dann NAME2_ usw.
+	 */
+	commentTables(): CommentTable[] {
+		const out: CommentTable[] = [];
+		for (let i = 1; ; i++) {
+			const prefix = i === 1 ? 'NAME_' : `NAME${i}_`;
+			if (!this.records.has(`${prefix}LOG_PT`)) {
+				if (i === 1) {
+					continue;
+				}
+				break;
+			}
+			const texts = i === 1 ? ['NAME_NAME', 'NAME_NAME2'] : [`${prefix}NAME`];
+			const fields = [`${prefix}LOG_PT`, `${prefix}LOG_PN`, ...texts];
+			for (const f of fields) {
+				if (!Array.isArray(this.records.get(f)?.value)) {
+					throw new Error(`DIOCFGSV.IO ohne Kommentarfeld ${f}.`);
+				}
+			}
+			const maxElem = Math.max(...fields.map((f) => this.records.get(f)!.elemSize ?? 1));
+			const bySize = Math.floor(MAX_VAR_BYTES / maxElem);
+			const widths = texts.map((t) => this.records.get(t)!.t2);
+			out.push({
+				prefix, fields, texts, widths,
+				capacity: Math.min(bySize, i === 1 ? NAME_TABLE_MAX : OVERFLOW_TABLE_MAX),
+				entries: this.arr(`${prefix}LOG_PT`).length
+			});
+		}
 		return out;
 	}
 
-	setComments(comments: Map<CommentKey, string>): void {
-		const pts: number[] = [];
-		const pns: number[] = [];
-		const n1: string[] = [];
-		const n2: string[] = [];
-		for (const [k, text] of comments) {
-			const [t, n] = unkey(k);
-			pts.push(t);
-			pns.push(n);
-			n1.push(text.slice(0, NAME1_LEN));
-			n2.push(text.slice(NAME1_LEN, MAX_COMMENT));
+	comments(): Map<CommentKey, string> {
+		const out = new Map<CommentKey, string>();
+		for (const t of this.commentTables()) {
+			const pt = this.arr(t.fields[0]);
+			const pn = this.arr(t.fields[1]);
+			const cols = t.texts.map((f) => this.arr(f));
+			pt.forEach((ty, i) => {
+				const k = key(Number(ty), Number(pn[i]));
+				if (!out.has(k)) {
+					out.set(k, cols.map((c) => String(c[i] ?? '')).join(''));
+				}
+			});
 		}
-		this.records.get('NAME_LOG_PT')!.value = pts;
-		this.records.get('NAME_LOG_PN')!.value = pns;
-		this.records.get('NAME_NAME')!.value = n1;
-		this.records.get('NAME_NAME2')!.value = n2;
+		return out;
+	}
+
+	/**
+	 * Kommentare wie die Steuerung verteilen: NAME_ bis zur Kapazität, dann NAME2_, NAME3_ …
+	 * Was nicht mehr passt, landet in der letzten Tabelle (sizeIssues meldet das dann).
+	 */
+	setComments(comments: Map<CommentKey, string>): void {
+		const tables = this.commentTables();
+		const all = [...comments];
+		let pos = 0;
+		tables.forEach((t, ti) => {
+			const take = ti === tables.length - 1 ? all.length - pos : Math.min(t.capacity, all.length - pos);
+			const part = all.slice(pos, pos + take);
+			pos += take;
+			this.records.get(t.fields[0])!.value = part.map(([k]) => unkey(k)[0]);
+			this.records.get(t.fields[1])!.value = part.map(([k]) => unkey(k)[1]);
+			let from = 0;
+			t.texts.forEach((f, i) => {
+				const w = t.widths[i];
+				const start = from;
+				this.records.get(f)!.value = part.map(([, text]) => text.slice(start, start + w));
+				from += w;
+			});
+		});
 	}
 
 	assignments(): Assignment[] {
@@ -266,7 +326,7 @@ export function readTableRows(rows: Sheet, source: string, commentColumn: string
 	if (!(ptype in PORT_TYPES)) {
 		report.notes.push({
 			source,
-			skipped: ptype === 'F' ? 'Flag-Kommentare werden nicht in DIOCFGSV.IO gespeichert' : `unbekannter Signaltyp „${header[0] ?? ''}“`
+			skipped: `unbekannter Signaltyp „${header[0] ?? ''}“`
 		});
 		return report;
 	}
@@ -432,7 +492,7 @@ export function buildDioCfg(template: Buffer, items: SourceItem[], opts: BuildOp
 		throw new Error('Kontrolle fehlgeschlagen: Zuordnungen stimmen nach dem Schreiben nicht überein.');
 	}
 	for (const [name, rec] of cfg.records) {
-		if (!name.startsWith('NAME_') && !name.startsWith('ASG_') && JSON.stringify(check.records.get(name)?.value) !== JSON.stringify(rec.value)) {
+		if (!/^NAME\d*_/.test(name) && !name.startsWith('ASG_') && JSON.stringify(check.records.get(name)?.value) !== JSON.stringify(rec.value)) {
 			throw new Error(`Kontrolle fehlgeschlagen: ${name} wurde verändert.`);
 		}
 	}
@@ -502,13 +562,9 @@ export function sizeIssues(cfg: DioCfg): SizeIssue[] {
 		.map((v) => ({ name: v.name, bytes: v.bytes!, entries: v.length!, maxEntries: Math.floor(MAX_VAR_BYTES / v.elemSize!) }));
 }
 
-/** Wie viele Kommentare passen höchstens in die Datei (kleinste Kapazität der NAME_*-Felder)? */
+/** Wie viele Kommentare passen höchstens in die Datei (Summe über NAME_, NAME2_, NAME3_ …)? */
 export function commentCapacity(cfg: DioCfg): number {
-	return Math.min(
-		...describeVars(cfg)
-			.filter((v) => v.name.startsWith('NAME_') && v.elemSize)
-			.map((v) => Math.floor(MAX_VAR_BYTES / v.elemSize!))
-	);
+	return cfg.commentTables().reduce((sum, t) => sum + t.capacity, 0);
 }
 
 export function describeVars(cfg: DioCfg): VarInfo[] {
@@ -575,6 +631,7 @@ export function dioReport(name: string, cfg: DioCfg, otherName?: string, other?:
 		perType.set(t, (perType.get(t) ?? 0) + 1);
 	}
 	lines.push(`- Kommentare: ${comments.size} (${[...perType].map(([t, n]) => `${t} ${n}`).join(', ') || '–'})`);
+	lines.push(`- Kommentartabellen: ${cfg.commentTables().map((t) => `${t.prefix} ${t.entries}/${t.capacity}`).join(', ')} (Platz für ${commentCapacity(cfg)})`);
 	const ranges = new Map<string, string[]>();
 	for (const a of cfg.assignments()) {
 		const t = PORT_NAMES[a.type] ?? String(a.type);

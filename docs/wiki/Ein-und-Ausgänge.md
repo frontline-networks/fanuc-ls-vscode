@@ -37,7 +37,7 @@ Die Signalnamen aus der Signal-Excel (z. B. **Fanuc IO-Mapping.xls** mit den Bl�
 **Aufruf:** Kachel **Excel → IO-Datei** auf der Schweißer-Startseite (Bereich *Häufig*), in der Ansicht E/A über `…` oder mit **FANUC: Signal-Excel in E/A-Konfiguration (DIOCFGSV.IO) umwandeln**.
 
 1. **Excel wählen.** Die zuletzt verwendete Datei wird vorgeschlagen.
-2. **Prüfen, was übernommen wird.** Je Blatt stehen Signaltyp, Zeilen und die Anzahl der Signalnamen. Signaltypen lassen sich abwählen. Gelesen werden Blätter, deren erste Kopfzelle der Signaltyp ist (DI, DO, GI, GO, SI, SO, UI, UO, AI, AO, WI, WO …); der Kommentar kommt aus der Spalte **Signal Name** (anpassbar). Blätter mit Flags (`F`) werden übersprungen, weil Flag-Kommentare nicht in `DIOCFGSV.IO` stehen.
+2. **Prüfen, was übernommen wird.** Je Blatt stehen Signaltyp, Zeilen und die Anzahl der Signalnamen. Signaltypen lassen sich abwählen. Gelesen werden Blätter, deren erste Kopfzelle der Signaltyp ist (DI, DO, GI, GO, SI, SO, UI, UO, AI, AO, WI, WO …); der Kommentar kommt aus der Spalte **Signal Name** (anpassbar). Blätter mit Flags (`F`) werden ebenfalls übernommen (Port-Typ 35).
 3. **Vorlage wählen:** die aktuelle `DIOCFGSV.IO` **des Zielroboters**, entweder direkt vom Roboter (`md:DIOCFGSV.IO`; das Original wird dabei unter `fanuc/Sicherungen/<Roboter>/E-A-Konfiguration/` gesichert) oder aus einem Backup.
 4. **Vorschau:** *Zusammenführen* (Standard: Namen aus der Excel ersetzen vorhandene Kommentare, Signale ohne Namen behalten ihren Kommentar) oder *Ersetzen* (alle Kommentare der gewählten Typen neu). Die Tabelle zeigt je Typ neue, geänderte und entfernte Kommentare und Beispiele; zu lange Namen werden aufgelistet. Optional werden die Namen auch in die E/A-Liste dieser Arbeitsumgebung übernommen, dann zeigen Hover und Vervollständigung sie sofort.
 5. **Speichern** und laden: Die Abschlussseite beschreibt, wie die Datei auf den Roboter kommt, und kann sie direkt auf einen Wechselspeicher des Roboters kopieren (z. B. `UD1:`).
@@ -49,7 +49,7 @@ Die Signalnamen aus der Signal-Excel (z. B. **Fanuc IO-Mapping.xls** mit den Bl�
 **Hardware-Zuordnungen aus der Excel** (Option in der Vorschau, standardmäßig an): Fehlende E/A und Gruppen-E/A werden in der Datei angelegt.
 
 - **DI/DO** (Blätter *PlcToRob*, *RobToPlc*): Spalten *Rack*, *Slot*, *StartPt*. Aufeinanderfolgende Signale mit fortlaufendem Startpunkt werden zu einem Bereich zusammengefasst, z. B. `DI[4097–6656] → Rack 100, Slot 1, ab 1`. Zeilen ohne vollständige Angabe (z. B. Rack ohne Slot) werden übersprungen und gezählt.
-- **GI/GO** (Blätter *GI*, *GO*): je Zeile *Rack*, *Slot*, *Start Pt*, *Num Pts*. **Unbestätigt:** Die Ablage in der Datei (Startnummer, Anzahl Bits, physischer Typ DI/DO) ist aus dem Aufbau der DI/DO-Zuordnungen abgeleitet. Nach dem Laden unter **MENU → E/A → Gruppe → KONFIG** prüfen.
+- **GI/GO** (Blätter *GI*, *GO*): je Zeile *Rack*, *Slot*, *Start Pt*, *Num Pts*. Abgelegt wie von der Steuerung (Gruppennummer, Anzahl Bits, physischer Typ DI/DO, Startpunkt); mit einer am Roboter konfigurierten `DIOCFGSV.IO` abgeglichen. Nach dem Laden unter **MENU → E/A → Gruppe → KONFIG** kontrollieren.
 - Zuordnungen der Vorlage, die sich mit einer neuen gleichen Typs überschneiden, werden ersetzt; alle anderen bleiben (UOP, SOP, Analog, Schweiß-E/A …). Die Vorschau listet neue und ersetzte Zuordnungen.
 - Die Zuordnungen müssen zur Hardware-Konfiguration des Roboters passen (z. B. PROFINET-Modulgröße auf Rack 100, Slot 1). Die wird hier nicht geändert.
 
@@ -69,10 +69,10 @@ Die Signalnamen aus der Signal-Excel (z. B. **Fanuc IO-Mapping.xls** mit den Bl�
 
 | Alarm | Text laut FANUC | Bedeutung hier |
 |---|---|---|
-| **VARS-032** | *Variable size too big* – die Variable ist größer als 65 535 Byte | Zu viele Kommentare: Jeder Kommentar belegt 20 Byte im Feld `NAME_NAME` (und `NAME_NAME2`), also passen höchstens **3 276** in eine `DIOCFGSV.IO`. |
+| **VARS-032** | *Variable size too big* – die Variable ist größer als 65 535 Byte | Zu viele Kommentare in einer Tabelle. Die Steuerung legt höchstens **3 276** Kommentare in `NAME_*` ab (20 Byte je Eintrag) und weicht dann in die Überlauftabellen `NAME2_*` und `NAME3_*` aus (je bis 2 300, 28 Byte je Eintrag). Bis Version 0.9.1 schrieb die Extension alles in `NAME_*` – ab 0.9.2 verteilt sie die Kommentare wie die Steuerung. |
 | **VARS-004** | *%s memory not updated* – die Variable existiert im Speicher, die Daten konnten nicht geladen werden | Folgefehler: Die zu große bzw. unpassende Variable ersetzt den Stand im Speicher nicht. |
 
-**Größengrenze im Assistenten:** Die Vorschau zeigt, wie viele Kommentare die Datei enthält und wie viele höchstens passen. Wird die Grenze überschritten, lässt sich keine Datei erzeugen. Abhilfe:
+**Größengrenze im Assistenten:** Die Vorschau zeigt, wie viele Kommentare die Datei enthält und wie viele höchstens passen (Summe über `NAME_*`, `NAME2_*`, `NAME3_*` der Vorlage; bei einer Vorlage mit Überlauftabellen etwa 7 876). Hat die Vorlage keine Überlauftabellen, passen nur 3 276 – dann stammt sie meist von einem anderen Roboter oder Softwarestand. Wird die Grenze überschritten, lässt sich keine Datei erzeugen. Abhilfe:
 
 - Signaltypen abwählen (Schritt 2) oder *Vorhandene Kommentare für nicht zugeordnete Signale entfernen*.
 - **Stattdessen per KAREL-Programm setzen:** Der Assistent erzeugt `.fanuc/io/FLIOCMT.KL` mit allen Kommentaren (KAREL-Built-in `SET_PORT_CMT`). Kompilieren (ktrans), `FLIOCMT.PC` auf den Roboter laden, am Handgerät einmal starten. Dafür gilt die Größengrenze der Datei nicht. Danach die `DIOCFGSV.IO` sichern. Die Zuordnungen (Rack/Slot) setzt das Programm nicht; dafür eine `DIOCFGSV.IO` ohne Kommentare erzeugen oder am Handgerät einrichten. *Noch nicht am Roboter erprobt.*

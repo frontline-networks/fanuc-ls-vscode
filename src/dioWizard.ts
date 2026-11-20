@@ -303,19 +303,23 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 					)
 				: '';
 			const robots = getControllers();
-			const nameBytes = result.comments.size * 20;
+			const usage = result.comments.size / Math.max(1, result.capacity);
+			const tables = cfg.commentTables();
+			const noOverflow = tables.length < 2
+				? ' Die Vorlage hat keine Überlauftabellen (<code>NAME2_*</code>, <code>NAME3_*</code>), in die neuere Steuerungen ab 3 276 Kommentaren ausweichen. Stammt sie wirklich vom Zielroboter?'
+				: '';
 			const sizeMsg = result.oversized.length
 				? message(
 						'error',
 						`<b>Zu viele Kommentare für eine DIOCFGSV.IO: ${result.comments.size}, höchstens ${result.capacity} möglich.</b> ` +
 							`FANUC lädt keine Variable über ${MAX_VAR_BYTES.toLocaleString('de-DE')} Byte (Alarm <b>VARS-032</b> „Variable size too big“, danach <b>VARS-004</b> „memory not updated“). ` +
-							`Betroffen: ${result.oversized.map((i) => `${i.name} ${i.bytes.toLocaleString('de-DE')} Byte`).join(', ')}.<br>` +
+							`Betroffen: ${result.oversized.map((i) => `${i.name} ${i.bytes.toLocaleString('de-DE')} Byte`).join(', ')}.${noOverflow}<br>` +
 							'Abhilfe: Signaltypen abwählen (Zurück), nicht zugeordnete Kommentare entfernen (Option unten) – oder die Kommentare <b>per KAREL-Programm</b> direkt setzen, dafür gilt diese Grenze nicht.'
 					)
 				: message(
-						nameBytes > MAX_VAR_BYTES * 0.8 ? 'warn' : 'info',
-						`Platz in der Datei: ${result.comments.size} von höchstens ${result.capacity} Kommentaren (${Math.round((nameBytes / MAX_VAR_BYTES) * 100)} % der FANUC-Grenze von ${MAX_VAR_BYTES.toLocaleString('de-DE')} Byte je Variable).` +
-							(nameBytes > MAX_VAR_BYTES * 0.8 ? ' Kommt beim Laden trotzdem VARS-032, bitte melden – dann rechnet die Steuerung mit mehr Byte je Eintrag; die Kommentare lassen sich alternativ per KAREL-Programm setzen.' : '')
+						usage > 0.9 ? 'warn' : 'info',
+						`Platz in der Datei: ${result.comments.size} von höchstens ${result.capacity} Kommentaren (${Math.round(usage * 100)} %), verteilt wie von der Steuerung auf ${tables.map((t) => `<code>${t.prefix}*</code>`).join(', ')}.` +
+							(usage > 0.9 ? noOverflow : '')
 					);
 			const r = await w.step(
 				page({
@@ -350,7 +354,7 @@ async function run(context: vscode.ExtensionContext, api: FanucApi, store: IoSto
 								(result.asgAdded.length > 25 ? `<tr><td></td><td>… und ${result.asgAdded.length - 25} weitere</td></tr>` : '') +
 								'</table>' +
 								(result.asgAdded.some((a) => a.type === PORT_TYPES.GI || a.type === PORT_TYPES.GO)
-									? message('warn', 'GI/GO-Zuordnungen: Die Ablage in der Datei (Startnummer, Anzahl Bits, physischer Typ DI/DO) ist aus dem Aufbau der DI/DO-Zuordnungen abgeleitet und am Roboter noch nicht bestätigt. Nach dem Laden unter MENU → E/A → Gruppe → KONFIG prüfen.')
+									? message('info', 'GI/GO-Zuordnungen werden wie von der Steuerung abgelegt (Gruppennummer, Anzahl Bits, physischer Typ DI/DO, Startpunkt). Nach dem Laden unter MENU → E/A → Gruppe → KONFIG kontrollieren.')
 									: '')
 							: '') +
 						`<h2>Änderungen</h2><table><tr><th>Typ</th><th>neu</th><th>geändert</th><th>entfernt</th><th>gesamt</th></tr>${perTypeRows}</table>` +

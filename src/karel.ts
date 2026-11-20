@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as os from 'os';
 import * as fs from 'fs/promises';
 import { KarelSymbol, hasConfigArg, ktransCommandLine, parseKarel, parseRobotIni, robotIniSearchDirs, usesSystemVariables } from './karelCore';
 
@@ -60,12 +59,16 @@ export function registerKarelFeatures(context: vscode.ExtensionContext): void {
 					const choice = await vscode.window.showWarningMessage(
 						'Keine robot.ini gefunden. Ohne sie übersetzt ktrans mit den Grund-Support-Dateien und kennt Systemvariablen von Optionen nicht ' +
 							'(z. B. ArcTool: $AWSCFG, $AWEPOR → „Id must be defined before this use“). ' +
-							'Die robot.ini liegt im Roboterordner einer ROBOGUIDE-Zelle (…\\My Workcells\\<Zelle>\\Robot_1) oder wird mit setrobot.exe erzeugt.',
+							'Die robot.ini erzeugt setrobot.exe (WinOLPC): ROBOGUIDE-Roboter mit denselben Optionen wählen, die Datei entsteht neben der .kl-Datei.',
+						'Mit setrobot erzeugen',
 						'robot.ini wählen',
 						'Ohne robot.ini kompilieren',
 						'Nicht mehr fragen'
 					);
-					if (choice === 'robot.ini wählen') {
+					if (choice === 'Mit setrobot erzeugen') {
+						await runSetrobot(ktrans, path.dirname(file));
+						return;
+					} else if (choice === 'robot.ini wählen') {
 						robotIni = await selectRobotIni(doc.uri);
 						if (!robotIni) {
 							return;
@@ -85,6 +88,28 @@ export function registerKarelFeatures(context: vscode.ExtensionContext): void {
 		}),
 		vscode.commands.registerCommand('fanucLs.karel.selectRobotIni', async () => {
 			const uri = vscode.window.activeTextEditor?.document.uri;
+			const how = await vscode.window.showQuickPick(
+				[
+					{ label: '$(add) Mit setrobot.exe erzeugen', description: 'ROBOGUIDE-Roboter wählen, robot.ini entsteht im Ordner', id: 'setrobot' },
+					{ label: '$(file) Vorhandene robot.ini wählen', id: 'pick' }
+				],
+				{ title: 'robot.ini für ktrans' }
+			);
+			if (!how) {
+				return;
+			}
+			if (how.id === 'setrobot') {
+				const ktrans = vscode.workspace.getConfiguration('fanucLs', uri).get<string>('karel.ktransPath', '').trim();
+				const dir =
+					uri?.scheme === 'file' && /\.kl$/i.test(uri.fsPath)
+						? path.dirname(uri.fsPath)
+						: (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ??
+							(await vscode.window.showOpenDialog({ canSelectFiles: false, canSelectFolders: true, openLabel: 'robot.ini hier erzeugen' }))?.[0]?.fsPath);
+				if (dir) {
+					await runSetrobot(ktrans, dir);
+				}
+				return;
+			}
 			const ini = await selectRobotIni(uri);
 			if (ini) {
 				const info = parseRobotIni(await fs.readFile(ini, 'latin1'));
@@ -129,22 +154,14 @@ async function exists(p: string): Promise<boolean> {
 	}
 }
 
-/** robot.ini auswählen (Start in "Dokumente\\My Workcells") und in den Einstellungen speichern. */
+/** robot.ini auswählen und in den Einstellungen speichern. */
 async function selectRobotIni(uri: vscode.Uri | undefined): Promise<string | undefined> {
-	const workcells = [path.join(os.homedir(), 'Documents', 'My Workcells'), path.join(os.homedir(), 'Dokumente', 'My Workcells')];
-	let start: string | undefined;
-	for (const w of workcells) {
-		if (await exists(w)) {
-			start = w;
-			break;
-		}
-	}
 	const picked = await vscode.window.showOpenDialog({
-		title: 'robot.ini für ktrans wählen (Roboterordner der ROBOGUIDE-Zelle, z. B. My Workcells\\<Zelle>\\Robot_1)',
+		title: 'robot.ini für ktrans wählen (erzeugt mit setrobot.exe)',
 		openLabel: 'robot.ini verwenden',
 		canSelectMany: false,
 		filters: { 'robot.ini': ['ini'] },
-		defaultUri: start ? vscode.Uri.file(start) : undefined
+		defaultUri: uri?.scheme === 'file' ? vscode.Uri.file(path.dirname(uri.fsPath)) : undefined
 	});
 	const file = picked?.[0]?.fsPath;
 	if (!file) {
@@ -163,4 +180,28 @@ async function selectRobotIni(uri: vscode.Uri | undefined): Promise<string | und
 	const target = vscode.workspace.workspaceFolders?.length ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
 	await vscode.workspace.getConfiguration('fanucLs', uri).update('karel.robotIni', file, target);
 	return file;
+}
+
+/**
+ * setrobot.exe (neben ktrans.exe in WinOLPC\\bin) im Zielordner starten: Der Anwender wählt einen
+ * ROBOGUIDE-Roboter, setrobot schreibt die robot.ini in den aktuellen Ordner.
+ */
+async function runSetrobot(ktrans: string, dir: string): Promise<void> {
+	const setrobot = ktrans ? path.join(path.dirname(ktrans), 'setrobot.exe') : '';
+	if (!setrobot || !(await exists(setrobot))) {
+		vscode.window.showWarningMessage(
+			`setrobot.exe nicht gefunden${setrobot ? ` (${setrobot})` : ''}. Es liegt normalerweise neben ktrans.exe in „…\\FANUC\\WinOLPC\\bin“. ` +
+				`Dort starten, den ROBOGUIDE-Roboter wählen und die erzeugte robot.ini nach ${dir} kopieren.`
+		);
+		return;
+	}
+	const terminal =
+		vscode.window.terminals.find((t) => t.name === 'FANUC KAREL' && String((t.creationOptions as vscode.TerminalOptions).cwd ?? '') === dir) ??
+		vscode.window.createTerminal({ name: 'FANUC KAREL', cwd: dir });
+	terminal.show(true);
+	terminal.sendText(`${process.platform === 'win32' && /\s/.test(setrobot) ? '& ' : ''}${/\s/.test(setrobot) ? `"${setrobot}"` : setrobot}`);
+	vscode.window.showInformationMessage(
+		`setrobot.exe läuft: im Fenster den ROBOGUIDE-Roboter mit denselben Optionen (z. B. ArcTool) und demselben Softwarestand wählen. ` +
+			`Die robot.ini entsteht in ${dir}; danach einfach erneut kompilieren – sie wird automatisch verwendet.`
+	);
 }

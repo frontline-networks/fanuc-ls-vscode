@@ -1,5 +1,11 @@
 # Änderungen
 
+## 0.9.4
+
+### Behoben
+
+- **robot.ini für ktrans:** Die Anleitung sagte, die `robot.ini` liege im Roboterordner der ROBOGUIDE-Zelle – dort gibt es sie aber nicht. Sie wird mit `setrobot.exe` (WinOLPC) erzeugt. Neu: *robot.ini wählen* → *Mit setrobot.exe erzeugen* bzw. beim Kompilieren *Mit setrobot erzeugen* startet `setrobot.exe` im Ordner der `.kl`-Datei; die erzeugte `robot.ini` wird danach automatisch verwendet. Texte, Einstellung und Wiki korrigiert, Ausweg ohne ROBOGUIDE-Roboter (`GET_VAR`) beschrieben.
+
 ## 0.9.3
 
 ### Neu

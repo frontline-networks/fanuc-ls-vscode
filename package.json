@@ -2,7 +2,7 @@
   "name": "fanuc-ls",
   "displayName": "FANUC TP (LS)",
   "description": "Syntaxhighlighting, Snippets, Syntaxprüfung und FTP-Dateitransfer für FANUC TP-Programme (.ls) und KAREL (.kl)",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "publisher": "frontlinenetworks",
   "license": "MIT",
   "repository": {
@@ -1239,7 +1239,7 @@
           "type": "string",
           "default": "",
           "scope": "machine-overridable",
-          "markdownDescription": "`robot.ini` für ktrans (`/config`): legt Softwarestand und Optionen fest, z. B. ArcTool mit `$AWSCFG`. Liegt im Roboterordner einer ROBOGUIDE-Zelle (`Dokumente\\\\My Workcells\\\\<Zelle>\\\\Robot_1\\\\robot.ini`) oder wird mit `setrobot.exe` erzeugt. Leer: `robot.ini` neben der `.kl`-Datei oder in einem Elternordner im Arbeitsbereich. `${workspaceFolder}` ist erlaubt."
+          "markdownDescription": "`robot.ini` für ktrans (`/config`): legt Softwarestand und Optionen fest, z. B. ArcTool mit `$AWSCFG`. Wird mit `setrobot.exe` (neben `ktrans.exe`) für einen ROBOGUIDE-Roboter erzeugt. Leer: `robot.ini` neben der `.kl`-Datei oder in einem Elternordner im Arbeitsbereich. `${workspaceFolder}` ist erlaubt."
         },
         "fanucLs.simpleMode": {
           "type": "boolean",

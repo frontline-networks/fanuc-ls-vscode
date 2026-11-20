@@ -48,17 +48,20 @@ Ohne `robot.ini` meldet ktrans `Notice: Unable to find 'robot.ini', Using basic 
 Id must be defined before this use.  Id: $AWSCFG
 ```
 
-Abhilfe: ktrans mit der `robot.ini` eines Roboters mit derselben Software und denselben Optionen aufrufen (`/config`):
+Abhilfe: ktrans mit einer `robot.ini` aufrufen (`/config`), die auf einen ROBOGUIDE-Roboter mit demselben Softwarestand und denselben Optionen zeigt. Die `robot.ini` liegt **nicht** fertig in der Zelle, sondern wird mit **`setrobot.exe`** erzeugt (liegt neben `ktrans.exe` in `…\FANUC\WinOLPC\bin`):
 
-- **Aus ROBOGUIDE:** Zelle mit diesem Roboter (z. B. ArcTool, V9.40) anlegen oder öffnen. Die `robot.ini` liegt im Roboterordner der Zelle, z. B. `Dokumente\My Workcells\<Zelle>\Robot_1\robot.ini`.
-- **Ohne Zelle:** mit `setrobot.exe` aus `WinOLPC\bin` erzeugen.
+1. Kachel **robot.ini wählen** → *Mit setrobot.exe erzeugen* (oder beim Kompilieren *Mit setrobot erzeugen*). Die Extension startet `setrobot.exe` im Ordner der `.kl`-Datei.
+2. Im Fenster von setrobot den ROBOGUIDE-Roboter wählen (Zelle mit ArcTool und passendem Softwarestand, z. B. V9.40).
+3. setrobot schreibt die `robot.ini` in den Ordner. Danach erneut kompilieren: Die Extension findet sie neben der `.kl`-Datei (oder in einem Elternordner im Arbeitsbereich) und übergibt sie mit `/config`.
 
-In der Extension: Kachel **robot.ini wählen** (Bereich *Argument-Wizard & KAREL*) bzw. Befehl **FANUC: robot.ini für KAREL wählen** oder die Einstellung `fanucLs.karel.robotIni`. Ist nichts eingestellt, wird eine `robot.ini` neben der `.kl`-Datei oder in einem Elternordner im Arbeitsbereich verwendet. Findet sich keine und das Programm verwendet Systemvariablen, fragt die Extension vor dem Kompilieren nach.
+Eine vorhandene `robot.ini` lässt sich auch über *Vorhandene robot.ini wählen* oder die Einstellung `fanucLs.karel.robotIni` festlegen.
+
+**Ohne passenden ROBOGUIDE-Roboter:** in ROBOGUIDE selbst kompilieren (die `.kl`-Datei der Zelle hinzufügen und dort übersetzen) oder die Systemvariablen zur Laufzeit lesen, z. B. `GET_VAR(entry, '*SYSTEM*', '$AWSCFG.$TOT_ARC_EQ', anzahl, status)` statt `$AWSCFG.$TOT_ARC_EQ` – das übersetzt auch mit den Grund-Support-Dateien.
 
 Die Befehlszeile sieht dann so aus:
 
 ```
-& "C:\Program Files (x86)\FANUC\WinOLPC\bin\ktrans.exe" FRONIUS.kl FRONIUS.pc /config "C:\Users\…\My Workcells\Zelle\Robot_1\robot.ini"
+& "C:\Program Files (x86)\FANUC\WinOLPC\bin\ktrans.exe" FRONIUS.kl FRONIUS.pc /config "D:\…\Karel\robot.ini"
 ```
 
 Die Syntax wird bisher nur durch ktrans geprüft; eine eigene KAREL-Syntaxprüfung wie bei TP-Programmen gibt es noch nicht.

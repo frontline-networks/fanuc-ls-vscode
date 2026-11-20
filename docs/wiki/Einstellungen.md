@@ -36,7 +36,7 @@
 |---|---|---|
 | `fanucLs.karel.ktransPath` | `""` | Pfad zu `ktrans.exe` aus ROBOGUIDE |
 | `fanucLs.karel.ktransArgs` | `""` | zusätzliche Argumente, z. B. `/ver V9.30-1` |
-| `fanucLs.karel.robotIni` | `""` | `robot.ini` für ktrans (`/config`), z. B. aus der ROBOGUIDE-Zelle; leer: neben der `.kl`-Datei suchen |
+| `fanucLs.karel.robotIni` | `""` | `robot.ini` für ktrans (`/config`), erzeugt mit `setrobot.exe`; leer: neben der `.kl`-Datei suchen |
 
 ## Schweißer-Oberfläche
 

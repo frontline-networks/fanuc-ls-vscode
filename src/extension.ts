@@ -13,6 +13,7 @@ import { registerGroupCommands } from './groups';
 import { registerKarelFeatures } from './karel';
 import { registerMirrorCommand } from './mirrorCommand';
 import { registerWelder } from './welder';
+import { registerMultiUpload } from './multiUpload';
 import { startStatusChecks } from './onlineStatus';
 import { registerLocationStatus } from './location';
 import { registerDocs } from './docs';
@@ -164,6 +165,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	// --- Seitenreiter „FANUC Roboter“ ---------------------------
 
 	const welderHome = registerWelder(context, api);
+	registerMultiUpload(context, api);
 	registerLocationStatus(context, (p) => originOf(context, p));
 
 	// --- FANUC-Dokumentation (lokaler Ordner, auch für Copilot) -----------------

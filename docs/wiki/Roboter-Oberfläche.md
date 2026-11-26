@@ -15,9 +15,9 @@ Für Anwender ohne Programmiererfahrung hat die Extension einen eigenen Seitenre
 
 | Bereich | Kacheln |
 |---|---|
-| Häufig | Programm holen, Auf Roboter laden, Prüfen, Sicherung, Excel → IO-Datei (Assistenten) |
+| Häufig | Programm holen, Auf Roboter laden, Mehrere laden, Prüfen, Sicherung, Excel → IO-Datei (Assistenten) |
 | Schweißen | Geschwindigkeit, Spiegeln (Assistenten) |
-| Programm | Neues Programm, Syntax prüfen, Zeilen nummerieren, LINE_COUNT, Hochladen, Mit Roboter vergleichen, Gruppe spiegeln |
+| Programm | An Roboter anpassen, Neues Programm, Syntax prüfen, Zeilen nummerieren, LINE_COUNT, Hochladen, Mit Roboter vergleichen, Gruppe spiegeln |
 | Sprungmarken | Einfügen, Alle neu nummerieren, Kommentar ändern, Nummer ändern |
 | Positionen & Achsen | Position anlegen, Gruppe hinzufügen/entfernen, Zusatzachse hinzufügen/entfernen |
 | Ein-/Ausgänge | Vom Roboter importieren, IO-Datei prüfen, Kommentare auf Roboter, CSV importieren/exportieren, Gültige Bereiche, Status ein/aus, Status entfernen, E/A suchen, E/A-Filter aufheben, Neu laden |

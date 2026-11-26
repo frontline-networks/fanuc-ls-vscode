@@ -42,6 +42,7 @@ export const SECTIONS: Section[] = [
 		tiles: [
 			{ command: 'fanucLs.welder.download', icon: '📥', label: 'Programm holen', hint: 'Programm vom Roboter auf den PC holen und öffnen' },
 			{ command: 'fanucLs.welder.upload', icon: '📤', label: 'Auf Roboter laden', hint: 'Programm prüfen und auf den Roboter laden – bei Fehlern gesperrt' },
+			{ command: 'fanucLs.welder.uploadMany', icon: '📦', label: 'Mehrere laden', hint: 'Mehrere Dateien auswählen, prüfen und auf einen Roboter laden – auf Wunsch an dessen Softwarestand angepasst' },
 			{ command: 'fanucLs.welder.check', icon: '✅', label: 'Prüfen', hint: 'Programm prüfen und Fehler verständlich anzeigen' },
 			{ command: 'fanucLs.welder.backup', icon: '💾', label: 'Sicherung', hint: 'Dateien eines Roboters auf den PC kopieren – ganze Speicher wählbar (md:, fr:, ud1: …)' },
 			{ command: 'fanucLs.io.excelToDiocfg', icon: '📊', label: 'Excel → IO-Datei', hint: 'Signalnamen aus der Signal-Excel (Fanuc IO-Mapping) in die E/A-Konfiguration DIOCFGSV.IO übernehmen' }
@@ -61,6 +62,7 @@ export const SECTIONS: Section[] = [
 		title: 'Programm',
 		open: true,
 		tiles: [
+			{ command: 'fanucLs.welder.adaptPrograms', icon: '🔧', label: 'An Roboter anpassen', hint: 'Programmkopf mehrerer Programme an einen anderen Roboter (Softwarestand, Optionen, lokale Register) anpassen – Vorlage ist ein Programm vom Roboter' },
 			{ command: 'fanucLs.newProgram', icon: '📄', label: 'Neues Programm', hint: 'Leeres TP-Programm anlegen' },
 			{ command: 'fanucLs.validate', icon: '🔍', label: 'Syntax prüfen', hint: 'Prüfung starten, Ergebnisse im Fenster „Probleme“', needs: 'fanuc-ls' },
 			{ command: 'fanucLs.renumber', icon: '🔢', label: 'Zeilen nummerieren', hint: 'Zeilennummern fortlaufend neu nummerieren', needs: 'fanuc-ls' },

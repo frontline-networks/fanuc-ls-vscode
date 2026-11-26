@@ -45,7 +45,7 @@ import {
 	str
 } from './welderUi';
 
-const WIKI = 'https://github.com/frontline-networks/fanuc-ls-vscode/wiki/Schwei%C3%9Fer-Oberfl%C3%A4che';
+const WIKI = 'https://github.com/frontline-networks/fanuc-ls-vscode/wiki/Roboter-Oberfl%C3%A4che';
 const SAFETY = 'Vor dem Automatikbetrieb das Programm im Handbetrieb (T1) mit reduzierter Geschwindigkeit abfahren.';
 
 /** Zuletzt aktives TP-Programm (der Assistent selbst hat den Fokus, daher merken). */

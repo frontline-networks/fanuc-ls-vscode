@@ -540,7 +540,8 @@ export function registerCommands(
 			vscode.window.showInformationMessage(
 				`${path.basename(localPath)} wurde nach ${remotePath} übertragen. Zum Aktivieren: Datei auf MC: ablegen, im Dateimenü mit F3 [LOAD] laden und die Steuerung neu starten.`
 			);
-		} else {
+		} else if (confirm) {
+			// Assistenten (confirm = false) zeigen das Ergebnis selbst, auch für viele Dateien auf einmal
 			vscode.window.showInformationMessage(`${path.basename(localPath)} wurde nach ${remotePath} geladen.`);
 		}
 		return true;

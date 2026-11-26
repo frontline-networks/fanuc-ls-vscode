@@ -82,6 +82,47 @@ Details:
 - **Diagnose- und Berichtsdateien** (`*.DG`, `ERRALL.LS`, `LOGBOOK.LS`, `IOSTATE.DG` …) erzeugt die Steuerung selbst. Sie lassen sich lesen, aber nicht hochladen; die Extension erklärt das, statt einen FTP-Fehler zu zeigen. Lehnt die Steuerung einen Upload ab (FTP 550–553), nennt die Meldung die typischen Gründe.
 - Pro Steuerung wird **nur eine FTP-Verbindung gleichzeitig** geöffnet, weil FANUC-Steuerungen nur sehr wenige Sitzungen zulassen.
 
+## Mehrere Dateien auf einen Roboter laden
+
+Kachel **Mehrere laden** (Bereich *Häufig*), **FANUC Roboter: Ausgewählte Dateien auf Roboter laden** oder im Explorer mehrere Dateien markieren → Rechtsklick → *Ausgewählte Dateien auf Roboter laden*.
+
+1. **Dateien ankreuzen** (`.LS`, `.TP`, `.PC`, `.DT`, `.VR`). *Weitere Dateien …* fügt Dateien außerhalb des Ordners hinzu.
+2. **Roboter und Speicher** wählen (Standard `md:`), optional **Programmkopf an den Roboter anpassen** (siehe unten).
+3. **Prüfen:** Je Datei zeigt die Tabelle Syntaxfehler, ob die Datei auf dem Roboter ersetzt wird und welche Kopfeinträge angepasst werden (*Anpassung zeigen* öffnet den Vergleich). Dateien mit Syntaxfehlern sind nicht angekreuzt. Aufgerufene Programme (`CALL`, `RUN`) werden vor den aufrufenden geladen.
+4. **Ergebnis je Datei:** geladen (ggf. angepasst) oder nicht geladen mit Grund. Ein Fehler bei einer Datei bricht die übrigen nicht ab.
+
+![Mehrere Dateien laden](images/38-mehrere-laden.png)
+
+## Programme an einen Roboter anpassen (Softwarestand, Optionen)
+
+Programme von einem Roboter mit anderem Softwarestand oder anderen Optionen lädt die Steuerung oft nicht, weil der **Programmkopf** andere Einträge erwartet. Beispiele:
+
+- `LOCAL_REGISTERS = 0,0,0;` (lokale Register) gibt es erst ab neueren Softwareständen; ältere Steuerungen lehnen den Eintrag ab, neuere erwarten ihn.
+- Der `TCD`-Block (Task-Einstellungen) hat je nach Stand andere Untereinträge.
+- Der `/APPL`-Abschnitt hängt von den Optionen ab (z. B. Arc Tool: `ARC Welding Equipment`).
+
+Diese Kopfstruktur ist bei allen Programmen eines Roboters gleich. Eine Differenz *ganzer* Programme lässt sich dagegen nicht auf andere Programme übertragen, weil sich Programmzeilen und Positionen unterscheiden. Deshalb dient **ein beliebiges Programm vom Zielroboter als Vorlage**:
+
+| Teil | Regel |
+|---|---|
+| `/ATTR` | Einträge und Reihenfolge wie in der Vorlage. Vorhandene Einträge behalten den Wert des Programms (Kommentar, Gruppen, Priorität …). Fehlende kommen mit dem Wert der Vorlage dazu, `LOCAL_REGISTERS` mit `0,0,0`. Einträge, die die Vorlage nicht kennt, entfallen. |
+| `TCD` | Untereinträge wie in der Vorlage, Werte vom Programm. |
+| `/APPL` | optional: fehlende Blöcke der Vorlage ergänzen; eigene Blöcke des Programms bleiben (sie können vom Programm abhängen). |
+| `/MN`, `/POS` | bleiben unverändert. |
+
+Verwendet ein Programm lokale Register und kennt der Zielroboter keine, meldet der Assistent das: Dann muss das Programm selbst geändert werden.
+
+**Aufruf:** Kachel **An Roboter anpassen** (Bereich *Programm*), **FANUC Roboter: Programme an Roboter anpassen** oder im Explorer Rechtsklick auf `.LS`-Dateien.
+
+1. Vorlage wählen: ein Programm vom Roboter (Liste aus `md:`) oder eine `.LS`-Datei am PC.
+2. Programme ankreuzen.
+3. Vorschau je Programm (+ ergänzt, − entfernt, ⚠️ Hinweise), *Vergleichen* zeigt vorher ↔ nachher. Speichern **als Kopie** in `angepasst/<Roboter>/` (empfohlen, die Originale bleiben für den bisherigen Roboter) oder Originale überschreiben.
+4. Danach direkt **Auf Roboter laden**.
+
+Beim **Laden mehrerer Dateien** geht das auch in einem Schritt: *Programmkopf an den Roboter anpassen* nimmt automatisch ein Programm des Zielroboters als Vorlage und lädt angepasste Kopien; die Dateien am PC bleiben unverändert.
+
+![An Roboter anpassen](images/39-an-roboter-anpassen.png)
+
 ## Controller klonen
 
 Mit einem Klon arbeitet man wie mit einer lokalen Kopie der Steuerung: alles herunterladen, in Ruhe bearbeiten, Änderungen prüfen und nur das Geänderte zurückspielen.

@@ -1,5 +1,18 @@
 # Änderungen
 
+## 1.1.0
+
+### Neu
+
+- **Mehrere Dateien auf einen Roboter laden:** Kachel *Mehrere laden*, auch im Explorer für mehrere markierte Dateien. Dateien ankreuzen, Roboter und Speicher wählen, Prüfung je Datei (Syntaxfehler, wird ersetzt), aufgerufene Programme (`CALL`/`RUN`) werden zuerst geladen, Ergebnis je Datei. Ein Fehler bei einer Datei bricht die übrigen nicht ab.
+- **Programme an einen Roboter anpassen** (Softwarestand, Optionen): Ein Programm vom Zielroboter dient als Vorlage, seine Kopfstruktur wird auf beliebig viele Programme übertragen – `LOCAL_REGISTERS` (lokale Register), Untereinträge im TCD-Block, optional `/APPL`-Blöcke. Die Werte der Programme (Kommentar, Gruppen, Priorität …) und der Programmteil bleiben. Vorschau und Vergleich je Programm, Speichern als Kopie in `angepasst/<Roboter>/` oder Überschreiben, danach direkt laden. Warnung, wenn ein Programm lokale Register verwendet, die der Zielroboter nicht kennt.
+- Beim Laden mehrerer Dateien lässt sich die Anpassung direkt zuschalten: Geladen werden angepasste Kopien, die Dateien am PC bleiben unverändert.
+
+### Verbessert
+
+- Assistenten zeigen beim Hochladen keine zusätzliche Meldung je Datei mehr.
+- Der Hilfe-Link im Seitenreiter führt direkt auf die Wiki-Seite *Roboter-Oberfläche*.
+
 ## 1.0.0
 
 Erste stabile Version. Enthält auch die nicht einzeln veröffentlichte Version 0.9.5 (KAREL: ktrans mit `robot.ini` ohne Zieldatei, siehe unten).

@@ -2,7 +2,7 @@
   "name": "fanuc-ls",
   "displayName": "FANUC TP (LS)",
   "description": "Syntaxhighlighting, Snippets, Syntaxprüfung und FTP-Dateitransfer für FANUC TP-Programme (.ls) und KAREL (.kl)",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "publisher": "frontlinenetworks",
   "license": "MIT",
   "repository": {
@@ -472,6 +472,17 @@
         "icon": "$(cloud-upload)"
       },
       {
+        "command": "fanucLs.welder.uploadMany",
+        "title": "Ausgewählte Dateien auf Roboter laden",
+        "category": "FANUC Roboter",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "fanucLs.welder.adaptPrograms",
+        "title": "Programme an Roboter anpassen (Softwarestand, Optionen)",
+        "category": "FANUC Roboter"
+      },
+      {
         "command": "fanucLs.welder.backup",
         "title": "Sicherung vom Roboter machen",
         "category": "FANUC Roboter",
@@ -834,6 +845,16 @@
         }
       ],
       "explorer/context": [
+        {
+          "command": "fanucLs.welder.uploadMany",
+          "when": "resourceExtname =~ /^\\.(ls|tp|pc|dt|vr)$/i && !config.fanucLs.simpleMode",
+          "group": "7_transfer@0"
+        },
+        {
+          "command": "fanucLs.welder.adaptPrograms",
+          "when": "resourceExtname =~ /^\\.ls$/i && !config.fanucLs.simpleMode",
+          "group": "7_transfer@5"
+        },
         {
           "command": "fanucLs.uploadCurrentFile",
           "when": "resourceLangId == fanuc-ls && !config.fanucLs.simpleMode",
